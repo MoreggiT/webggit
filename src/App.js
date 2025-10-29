@@ -8,6 +8,7 @@ import "./index.css";
 
 import MoldWheel from "./components/MoldWheel";
 import ModelGallery from "./components/ModelGallery";
+import TextPanel from "./components/TextPanel"; // <-- 1. IMPORTADO
 
 /* ========== helpers de nombres ========== */
 const stripAccents = (s) =>
@@ -754,7 +755,11 @@ export default function App() {
 
   /* ===================== PANEL DE TEXTO (DERECHA) ===================== */
   const [textPanelOpen, setTextPanelOpen] = useState(false);
-  const [textForm, setTextForm] = useState({
+  
+  // Estado inicial para el formulario de texto.
+  // El componente TextPanel ahora manejará su propio estado interno,
+  // pero podemos usar esto para pasarle los valores iniciales.
+  const [textForm] = useState({
     text: "TU TEXTO",
     fontFamily: "Inter, system-ui, Arial, sans-serif",
     fontWeight: 800,
@@ -770,10 +775,13 @@ export default function App() {
     opacity: 1,
   });
 
-  const updateTextForm = (key, val) =>
-    setTextForm((p) => ({ ...p, [key]: val }));
+  // 2. Esta función ya no es necesaria, la lógica está en TextPanel.jsx
+  // const updateTextForm = (key, val) =>
+  //   setTextForm((p) => ({ ...p, [key]: val }));
 
-  const handleAddText = async () => {
+  // 3. MODIFICADA: Esta función ahora recibe el objeto de texto
+  // desde el componente TextPanel
+  const handleAddText = async (textConfig) => {
     if (!hasModel) {
       alert("Cargá un modelo primero.");
       return;
@@ -784,9 +792,11 @@ export default function App() {
       return;
     }
     // Disparar la creación y dejar listo para colocar
-    await api.addTextOverlay({ ...textForm });
+    await api.addTextOverlay({ ...textConfig });
     setStatus("Texto listo: hacé clic sobre el modelo para colocarlo. Doble clic para editar.");
     // El snapshot se toma en onOverlaysChanged cuando se coloca
+    
+    setTextPanelOpen(false); // Opcional: cerrar el panel al agregar
   };
 
   /* ============================ RENDER ============================ */
@@ -1184,230 +1194,15 @@ export default function App() {
       )}
 
       {/* =================== PANEL DERECHO DE TEXTO =================== */}
-      {textPanelOpen && (
-        <aside
-          aria-label="Panel de texto"
-          style={{
-            position: "fixed",
-            right: 12,
-            top: 12,
-            bottom: 12,
-            width: 340,
-            background: "var(--card)",
-            border: "1px solid var(--border)",
-            borderRadius: "16px",
-            boxShadow: "var(--shadow)",
-            zIndex: 800,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              padding: "12px 14px",
-              borderBottom: "1px solid var(--border)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 8,
-              background:
-                "linear-gradient(180deg, rgba(255,255,255,.7), rgba(255,255,255,.4))",
-              backdropFilter: "blur(6px)",
-            }}
-          >
-            <strong style={{ fontSize: 14 }}>🅣 Texto sobre 3D</strong>
-            <button className="btn" onClick={() => setTextPanelOpen(false)}>
-              Cerrar
-            </button>
-          </div>
-
-          <div
-            style={{
-              padding: 14,
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-              overflow: "auto",
-            }}
-          >
-            <label className="small">Contenido</label>
-            <textarea
-              value={textForm.text}
-              onChange={(e) => updateTextForm("text", e.target.value)}
-              rows={4}
-              style={{
-                width: "100%",
-                resize: "vertical",
-                border: "1px solid var(--border)",
-                borderRadius: 12,
-                padding: 10,
-              }}
-              placeholder="Escribí tu texto (Shift+Enter para nueva línea al editar inline)"
-            />
-
-            <div className="stack">
-              <label className="small">Fuente (CSS font-family)</label>
-              <input
-                type="text"
-                value={textForm.fontFamily}
-                onChange={(e) => updateTextForm("fontFamily", e.target.value)}
-                placeholder='Inter, system-ui, Arial, sans-serif'
-              />
-            </div>
-
-            <div className="row-actions">
-              <div style={{ flex: 1 }}>
-                <label className="small">Peso</label>
-                <select
-                  value={textForm.fontWeight}
-                  onChange={(e) =>
-                    updateTextForm("fontWeight", Number(e.target.value))
-                  }
-                >
-                  {[300, 400, 500, 600, 700, 800, 900].map((w) => (
-                    <option key={w} value={w}>
-                      {w}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ width: 120 }}>
-                <label className="small">Estilo</label>
-                <select
-                  value={textForm.fontStyle}
-                  onChange={(e) => updateTextForm("fontStyle", e.target.value)}
-                >
-                  <option value="normal">normal</option>
-                  <option value="italic">italic</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="row-actions">
-              <div style={{ flex: 1 }}>
-                <label className="small">Tamaño (px)</label>
-                <input
-                  type="number"
-                  min={8}
-                  max={512}
-                  value={textForm.fontSize}
-                  onChange={(e) => updateTextForm("fontSize", Number(e.target.value || 0))}
-                />
-              </div>
-              <div style={{ width: 120 }}>
-                <label className="small">Interlineado</label>
-                <input
-                  type="number"
-                  step="0.05"
-                  min="0.8"
-                  max="2"
-                  value={textForm.lineHeight}
-                  onChange={(e) => updateTextForm("lineHeight", Number(e.target.value || 1))}
-                />
-              </div>
-            </div>
-
-            <div className="row-actions">
-              <div style={{ flex: 1 }}>
-                <label className="small">Color</label>
-                <input
-                  type="color"
-                  value={textForm.color}
-                  onChange={(e) => updateTextForm("color", e.target.value)}
-                />
-              </div>
-              <div style={{ width: 120 }}>
-                <label className="small">Alineación</label>
-                <select
-                  value={textForm.align}
-                  onChange={(e) => updateTextForm("align", e.target.value)}
-                >
-                  <option value="left">izquierda</option>
-                  <option value="center">centro</option>
-                  <option value="right">derecha</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="row-actions">
-              <div style={{ flex: 1 }}>
-                <label className="small">Contorno (color)</label>
-                <input
-                  type="color"
-                  value={textForm.strokeColor}
-                  onChange={(e) => updateTextForm("strokeColor", e.target.value)}
-                />
-              </div>
-              <div style={{ width: 120 }}>
-                <label className="small">Grosor</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={24}
-                  value={textForm.strokeWidth}
-                  onChange={(e) =>
-                    updateTextForm("strokeWidth", Number(e.target.value || 0))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="row-actions">
-              <div style={{ flex: 1 }}>
-                <label className="small">Fondo</label>
-                <input
-                  type="text"
-                  value={textForm.background}
-                  onChange={(e) => updateTextForm("background", e.target.value)}
-                  placeholder='transparent o #ffffff'
-                />
-              </div>
-              <div style={{ width: 120 }}>
-                <label className="small">Padding (px)</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={200}
-                  value={textForm.padding}
-                  onChange={(e) => updateTextForm("padding", Number(e.target.value || 0))}
-                />
-              </div>
-            </div>
-
-            <div className="row-actions">
-              <div style={{ flex: 1 }}>
-                <label className="small">Opacidad</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={1}
-                  step="0.05"
-                  value={textForm.opacity}
-                  onChange={(e) =>
-                    updateTextForm("opacity", Number(e.target.value || 1))
-                  }
-                />
-              </div>
-              <div style={{ width: 120, alignSelf: "flex-end" }}>
-                <button
-                  className="btn-primary w-full"
-                  onClick={handleAddText}
-                  disabled={!hasModel}
-                  title="Genera el sticker de texto y te deja colocarlo con un clic"
-                >
-                  Agregar texto al 3D
-                </button>
-              </div>
-            </div>
-
-            <div className="small muted">
-              Tip: una vez colocado, **doble clic** sobre el texto en el 3D para
-              editarlo en el lugar. Usá <strong>Shift+Enter</strong> para salto de línea.
-            </div>
-          </div>
-        </aside>
-      )}
+      {/* 4. ELIMINADO: Todo el JSX del <aside> que estaba aquí (230+ líneas) */}
+      
+      {/* 5. AÑADIDO: El componente TextPanel limpio */}
+      <TextPanel
+        open={textPanelOpen}
+        onClose={() => setTextPanelOpen(false)}
+        onCreateText={handleAddText}
+        initial={textForm}
+      />
     </div>
   );
 }
