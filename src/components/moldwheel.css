@@ -1,0 +1,105 @@
+/* src/components/moldwheel.css */
+:root{
+  --border: #e5e7eb;
+  --accent: #2563eb;
+  --mw-anim: 260ms; /* duración por defecto de la animación abrir/cerrar */
+}
+
+/* Área del selector (la altura se anima para liberar/ocupar espacio del 3D) */
+.mw-root{
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 300px;                 /* valor inicial; luego se sobreescribe inline */
+  transition: height var(--mw-anim) ease;
+  pointer-events: none;          /* re-habilitamos en hijos donde haga falta */
+  user-select: none;
+  z-index: 5;
+}
+
+/* Stage centrado horizontalmente */
+.mw-stage{
+  position: absolute;
+  left:50%;
+  transform:translateX(-50%);
+  pointer-events:none;
+}
+
+/* El SVG recibe eventos (segmentos y hub) */
+.mw-fan{
+  display:block;
+  pointer-events:auto;
+}
+
+/* ---------------- Segmentos ---------------- */
+.mw-segbtn{
+  cursor: pointer;
+  transition: filter .18s ease, opacity .18s ease, transform .18s ease;
+}
+.mw-segbtn:hover{
+  filter: saturate(1.02) drop-shadow(0 10px 18px rgba(15,23,42,.15));
+}
+.mw-segbtn .seg-surface{
+  fill: #ffffff;
+  stroke: var(--border);
+  stroke-width: 1.2;
+  filter: drop-shadow(0 12px 28px rgba(15,23,42,.14));
+}
+.mw-segbtn.is-empty .seg-surface{
+  fill: #f8fafc;
+  stroke-dasharray: 4 6;
+}
+.mw-segbtn.is-selected .seg-surface{
+  stroke: var(--accent);
+  filter: drop-shadow(0 14px 34px rgba(37,99,235,.22));
+}
+
+/* Ícono (jersey/plus) centrado dentro del slot */
+.mw-icon{
+  pointer-events:none;
+}
+
+/* Imagen del ícono externo (SVG) colocada dentro del <g> .mw-icon */
+.mw-icon-img{
+  /* El centrado real lo hace x/y = -iconSize/2; esto ayuda con el hinting */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+/* Opcional: resaltar ícono cuando el slot está seleccionado */
+.mw-segbtn.is-selected .mw-icon-img{
+  filter: drop-shadow(0 4px 10px rgba(37,99,235,.25));
+}
+
+/* ---------------- Hub ---------------- */
+.mw-hub{
+  fill: rgba(255,255,255,.96);
+  stroke: var(--border);
+  filter: drop-shadow(0 18px 48px rgba(15,23,42,.16));
+}
+.mw-hub-btn{
+  cursor: pointer;
+  pointer-events: auto;
+}
+.mw-hub-label{
+  font: 900 12px/1 Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  letter-spacing: .08em;
+  fill: #111827;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  text-shadow:
+    0 1px 0 rgba(255,255,255,.9),
+    0 0 8px rgba(0,0,0,.06);
+}
+
+/* ---------------- Animación grupo de slots ---------------- */
+/* El grupo se anima con estilos inline; este bloque define el estado base
+   (por si se renderiza sin estilos inline en un SSR/flash). */
+.mw-slots{
+  transform-origin: 50% 100%;
+  transition: transform var(--mw-anim) ease, opacity var(--mw-anim) ease;
+}
+
+/* Responsivo (opcional) */
+@media (max-width: 920px){
+  .mw-root{ height: 280px; }
+}

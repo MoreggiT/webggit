@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="diseño" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150.09 190.83">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #db9e05;
+      }
+
+      .cls-2 {
+        fill: #ba0000;
+      }
+    </style>
+  </defs>
+  <rect id="COLOR_1" data-name="COLOR 1" class="cls-2" x=".01" y=".01" width="150.06" height="192.8"/>
+  <path id="COLOR_2" data-name="COLOR 2" class="cls-1" d="M0,95.41c12.91-13.75,35.39-34.32,68.68-50.26,32.91-15.76,62.69-20.42,81.41-21.91V.01H.01V95.41Z"/>
+  <path id="COLOR_2-2" data-name="COLOR 2" class="cls-1" d="M.01,110.06c8.23-9.94,18.42-20.73,30.91-31.39,25.92-22.12,51.93-35.3,71.78-43.24-18.54,9.88-42.72,25.43-66.51,49.39C20.5,100.62,8.72,116.3,0,129.81c0-6.59,0-13.17,.01-19.76Z"/>
+</svg>
