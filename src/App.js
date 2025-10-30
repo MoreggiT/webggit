@@ -342,7 +342,7 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch("/index.json");
+        const r = await fetch(`${process.env.PUBLIC_URL}/index.json`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         
         // MODIFICACIÓN: Leer como texto y validar el JSON para manejar mejor el error HTML
