@@ -344,7 +344,20 @@ export default function App() {
       try {
         const r = await fetch("/index.json");
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const json = await r.json();
+        
+        // MODIFICACIÓN: Leer como texto y validar el JSON para manejar mejor el error HTML
+        const text = await r.text();
+        let json;
+        try {
+            json = JSON.parse(text);
+        } catch (e) {
+            // Si el error es de sintaxis y el contenido parece ser HTML, lo identificamos
+            if (text.trim().startsWith("<!DOCTYPE html>")) {
+                throw new Error("El servidor devolvió una página HTML en lugar de /index.json. Esto es un error de configuración del servidor o un archivo faltante (404/fallback).");
+            }
+            throw e; // Relanza el error de sintaxis original si no es HTML
+        }
+        
         const idx = { moldes: json.moldes || {}, diseños: json.diseños || {} };
         setIndexData(idx);
         const cats = Object.keys(idx.moldes);
@@ -354,7 +367,7 @@ export default function App() {
         );
       } catch (err) {
         console.error("Error leyendo /index.json:", err);
-        setStatus("No se pudo leer /index.json");
+        setStatus(`Error al cargar índice: ${err.message || "Verifica tu archivo y configuración de servidor."}`);
       }
     })();
   }, []);
