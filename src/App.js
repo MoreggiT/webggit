@@ -8,7 +8,7 @@ import "./index.css";
 
 import MoldWheel from "./components/MoldWheel";
 import ModelGallery from "./components/ModelGallery";
-import TextPanel from "./components/TextPanel"; // <-- 1. IMPORTADO
+import TextPanel from "./components/TextPanel"; // <-- Importado
 
 /* ========== helpers de nombres ========== */
 const stripAccents = (s) =>
@@ -756,10 +756,11 @@ export default function App() {
   /* ===================== PANEL DE TEXTO (DERECHA) ===================== */
   const [textPanelOpen, setTextPanelOpen] = useState(false);
   
-  // Estado inicial para el formulario de texto.
-  // El componente TextPanel ahora manejará su propio estado interno,
-  // pero podemos usar esto para pasarle los valores iniciales.
-  const [textForm] = useState({
+  // 1. NUEVO: Estado para el texto que se está editando
+  const [editingText, setEditingText] = useState(null); // null = modo "Crear"
+
+  // Estado inicial para el formulario de texto (modo "Crear")
+  const [initialTextForm] = useState({
     text: "TU TEXTO",
     fontFamily: "Inter, system-ui, Arial, sans-serif",
     fontWeight: 800,
@@ -775,12 +776,8 @@ export default function App() {
     opacity: 1,
   });
 
-  // 2. Esta función ya no es necesaria, la lógica está en TextPanel.jsx
-  // const updateTextForm = (key, val) =>
-  //   setTextForm((p) => ({ ...p, [key]: val }));
 
-  // 3. MODIFICADA: Esta función ahora recibe el objeto de texto
-  // desde el componente TextPanel
+  // Función para CREAR un texto nuevo
   const handleAddText = async (textConfig) => {
     if (!hasModel) {
       alert("Cargá un modelo primero.");
@@ -791,13 +788,60 @@ export default function App() {
       alert("La función addTextOverlay no está disponible.");
       return;
     }
-    // Disparar la creación y dejar listo para colocar
     await api.addTextOverlay({ ...textConfig });
     setStatus("Texto listo: hacé clic sobre el modelo para colocarlo. Doble clic para editar.");
-    // El snapshot se toma en onOverlaysChanged cuando se coloca
     
-    setTextPanelOpen(false); // Opcional: cerrar el panel al agregar
+    setTextPanelOpen(false); // Cerrar panel
+    setEditingText(null);    // Limpiar estado de edición
   };
+
+  // 2. NUEVO: Función para ACTUALIZAR un texto existente
+  const handleUpdateText = async (textConfig) => {
+    if (!hasModel || !editingText) return;
+    const api = viewerApiRef.current;
+    if (!api?.updateTextOverlay) return;
+    
+    // Llamamos a la nueva función del viewer
+    await api.updateTextOverlay({ ...textConfig });
+    
+    // Actualizamos el estado de edición (por si el usuario sigue cambiando)
+    setEditingText(textConfig); 
+    
+    setStatus("Texto actualizado.");
+    // No cerramos el panel
+  };
+  
+  // 3. NUEVO: Función para recibir la selección desde Viewer3D
+  const handleTextSelected = (textData) => {
+    setEditingText(textData); // null si se deselecciona, o data si se selecciona
+    if (textData) {
+      setTextPanelOpen(true); // Abrir el panel si se seleccionó un texto
+    }
+  };
+
+  // 4. NUEVO: Lógica para manejar la apertura manual del panel (botón 🅣)
+  const handleToggleTextPanel = () => {
+    const isOpening = !textPanelOpen;
+    setTextPanelOpen(isOpening);
+    
+    if (isOpening) {
+      // Si se abre manualmente, forzamos modo "Crear"
+      setEditingText(null);
+      viewerApiRef.current?.clearSelectionAll();
+    } else {
+      // Si se cierra, limpiamos todo
+      setEditingText(null);
+      viewerApiRef.current?.clearSelectionAll();
+    }
+  };
+  
+  // 5. NUEVO: Lógica para el botón "Cerrar" del panel
+  const handleCloseTextPanel = () => {
+    setTextPanelOpen(false);
+    setEditingText(null);
+    viewerApiRef.current?.clearSelectionAll();
+  };
+
 
   /* ============================ RENDER ============================ */
   return (
@@ -1080,10 +1124,10 @@ export default function App() {
             </svg>
           </button>
 
-          {/* ===== Botón para abrir/cerrar panel de TEXTO (derecha) ===== */}
+          {/* 6. MODIFICADO: onClick ahora usa la nueva función */}
           <button
             className="icon-btn"
-            onClick={() => setTextPanelOpen((v) => !v)}
+            onClick={handleToggleTextPanel} 
             aria-label="Texto (panel derecho)"
             title="Texto (panel derecho)"
           >
@@ -1109,6 +1153,7 @@ export default function App() {
           onProgress={onProgress}
           onClearAll={onClear}
           onOverlaysChanged={() => pushSnapshot()}
+          onTextSelected={handleTextSelected} // 7. NUEVO: Pasar el handler al viewer
           log={console.log}
         />
 
@@ -1193,15 +1238,14 @@ export default function App() {
         />
       )}
 
-      {/* =================== PANEL DERECHO DE TEXTO =================== */}
-      {/* 4. ELIMINADO: Todo el JSX del <aside> que estaba aquí (230+ líneas) */}
-      
-      {/* 5. AÑADIDO: El componente TextPanel limpio */}
+      {/* 8. MODIFICADO: Pasar los nuevos props al TextPanel */}
       <TextPanel
         open={textPanelOpen}
-        onClose={() => setTextPanelOpen(false)}
+        onClose={handleCloseTextPanel}
         onCreateText={handleAddText}
-        initial={textForm}
+        onUpdateText={handleUpdateText}
+        initialData={initialTextForm}
+        editingData={editingText}
       />
     </div>
   );

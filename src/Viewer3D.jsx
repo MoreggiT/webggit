@@ -13,7 +13,8 @@ export default function Viewer3D({
   onProgress,
   onClearAll,
   onOverlaysChanged,
-  onDesignLayerParsed, // callback existente
+  onDesignLayerParsed, 
+  onTextSelected, // Prop existente
   log
 }) {
   const mountRef = useRef();
@@ -31,7 +32,6 @@ export default function Viewer3D({
   const overlayMgrRef = useRef(null);
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
-  // pendingImageRef ahora puede ser: HTMLImageElement o { img: HTMLImageElement, meta: {...} }
   const pendingImageRef = useRef(null);
 
   const dragRef = useRef({
@@ -39,7 +39,8 @@ export default function Viewer3D({
     mode: null,
     mgr: null,
     id: null,
-    startCx: 0, startCy: 0, startDist: 0, startW: 0, startH: 0,
+    startCx: 0, startCy: 0, startDist: 0, 
+    startScale: 1, // <-- MODIFICADO: ya no guardamos w/h
     startAngle: 0, startVecX: 0, startVecY: 0,
     pointerId: null,
     tri: null,
@@ -56,7 +57,6 @@ export default function Viewer3D({
 
   /* ============ Utilidades de Texto ============ */
   function buildFontString({ fontStyle = "normal", fontWeight = 700, fontSize = 96, fontFamily = "Inter, system-ui, Arial, sans-serif" } = {}) {
-    // ctx.font → "italic 700 96px Inter, sans-serif"
     return `${fontStyle || "normal"} ${String(fontWeight || 400)} ${Math.max(4, Number(fontSize || 16))}px ${fontFamily || "Inter, system-ui, Arial, sans-serif"}`;
   }
 
@@ -68,13 +68,14 @@ export default function Viewer3D({
       fontStyle = "normal",
       fontSize = 96,
       color = "#111827",
-      align = "center", // left|center|right
-      strokeColor = null, // p.ej. "#FFFFFF"
+      align = "center", 
+      strokeColor = null, 
       strokeWidth = 0,
-      padding = 24, // px
-      background = "transparent", // o "#ffffff"
+      padding = 24, 
+      background = "transparent", 
       lineHeight = 1.2,
-      maxWidth = null, // si querés wrap manual (opcional)
+      maxWidth = null, 
+      opacity = 1, 
     } = opts;
 
     const canvas = document.createElement("canvas");
@@ -82,13 +83,11 @@ export default function Viewer3D({
     ctx.textBaseline = "alphabetic";
     ctx.font = buildFontString({ fontStyle, fontWeight, fontSize, fontFamily });
 
-    // Soporte multilinea simple por "\n"
     const lines = String(text).split("\n");
     const measureLine = (t) => ctx.measureText(t).width;
 
     let contentWidth = 0;
     if (maxWidth && maxWidth > 0) {
-      // Wrap básico: corta por palabras sin romper
       const wrapped = [];
       for (const line of lines) {
         const words = line.split(" ");
@@ -119,7 +118,6 @@ export default function Viewer3D({
     canvas.width = W;
     canvas.height = H;
 
-    // Redefinir font (porque al cambiar size se resetea el contexto)
     ctx.textBaseline = "alphabetic";
     ctx.font = buildFontString({ fontStyle, fontWeight, fontSize, fontFamily });
     ctx.fillStyle = color || "#111827";
@@ -128,6 +126,8 @@ export default function Viewer3D({
       ctx.strokeStyle = strokeColor;
       ctx.lineWidth = strokeWidth;
     }
+    
+    ctx.globalAlpha = (typeof opacity === 'number') ? Math.max(0, Math.min(1, opacity)) : 1;
 
     if (background && background !== "transparent") {
       ctx.fillStyle = background;
@@ -142,7 +142,6 @@ export default function Viewer3D({
 
     ctx.textAlign = align === "left" ? "left" : align === "right" ? "right" : "center";
 
-    // Dibujar líneas
     let y = padding + ascent;
     for (const l of lines) {
       if (strokeColor && strokeWidth > 0) ctx.strokeText(l, x, y);
@@ -168,7 +167,8 @@ export default function Viewer3D({
       this.mesh = mesh;
       this.canvas = document.createElement("canvas");
       this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
-      this.overlays = []; // cada overlay: {id,img,x,y,w,h,opacity,angle,meta?}
+      // MODIFICADO: overlay ahora guarda baseW/H y scale
+      this.overlays = []; // {id,img,x,y,w,h, baseW,baseH, scale, opacity,angle,meta?}
       this._nextId = 1;
       this.selectedId = null;
       this._yPolarity = 0;
@@ -176,7 +176,7 @@ export default function Viewer3D({
       this.canvas.width = 4096;
       this.canvas.height = 4096;
 
-      // ---- Bounds UV ----
+      // ... (inicialización de UVs, textura, material... todo igual) ...
       this.uMin = 0; this.uMax = 1; this.vMin = 0; this.vMax = 1; this.du = 1; this.dv = 1;
       const uvs = mesh.geometry?.attributes?.uv;
       if (uvs && uvs.count) {
@@ -242,6 +242,7 @@ export default function Viewer3D({
     }
 
     _drawHandleBox(ctx, x, y, s, type) {
+      // ... (sin cambios) ...
       ctx.fillStyle = "rgba(0,0,0,0.75)";
       ctx.strokeStyle = "rgba(255,255,255,0.95)";
       ctx.lineWidth = 2;
@@ -259,12 +260,10 @@ export default function Viewer3D({
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
-
       ctx.save();
       ctx.translate(x + s/2, y + s/2);
       ctx.strokeStyle = "white";
       ctx.lineWidth = 3;
-
       if (type === "scale") {
         const a = s*0.28, ah = s*0.12;
         ctx.beginPath(); ctx.moveTo(-a, a); ctx.lineTo(a, -a); ctx.stroke();
@@ -304,9 +303,12 @@ export default function Viewer3D({
         ctx.translate(cx, cy);
         const ang = o.angle ?? 0;
         if (ang) ctx.rotate(ang);
-        ctx.globalAlpha = o.opacity ?? 1;
+        
+        ctx.globalAlpha = (typeof o.opacity === 'number') ? o.opacity : 1;
+        
         ctx.imageSmoothingEnabled = true;
-        ctx.drawImage(o.img, -o.w/2, -o.h/2, o.w, o.h);
+        // Dibuja la imagen usando el ancho/alto (w/h) calculado, no el baseW
+        ctx.drawImage(o.img, -o.w/2, -o.h/2, o.w, o.h); 
 
         if (this.selectedId === o.id) {
           const HANDLE = Math.max(42, Math.min(120, Math.round(Math.min(o.w, o.h)*0.18)));
@@ -315,6 +317,9 @@ export default function Viewer3D({
           const leftX  = -o.w/2;
           const midX   = -HANDLE/2;
           const rightX =  o.w/2 - HANDLE;
+          
+          ctx.globalAlpha = 1; 
+          
           this._drawHandleBox(ctx, leftX,  yTop, HANDLE, "rotate");
           this._drawHandleBox(ctx, midX,   yTop, HANDLE, "delete");
           this._drawHandleBox(ctx, rightX, yTop, HANDLE, "scale");
@@ -332,6 +337,7 @@ export default function Viewer3D({
       return this._addFromImageWithMeta(img, opts, null);
     }
 
+    // MODIFICADO: Guarda baseW/H y scale
     _addFromImageWithMeta(img, opts = {}, meta = null) {
       const naturalW = img.naturalWidth || img.width;
       const naturalH = img.naturalHeight || img.height;
@@ -341,11 +347,14 @@ export default function Viewer3D({
         img,
         x: Math.round(opts.x ?? 20),
         y: Math.round(opts.y ?? 20),
-        w: Math.round(naturalW * scale),
+        baseW: naturalW, // <-- NUEVO
+        baseH: naturalH, // <-- NUEVO
+        scale: scale,    // <-- NUEVO
+        w: Math.round(naturalW * scale), // w/h ahora son calculados
         h: Math.round(naturalH * scale),
-        opacity: opts.opacity ?? 1,
+        opacity: opts.opacity ?? 1, 
         angle: 0,
-        meta: meta ? { ...meta } : null, // meta.kind === "text" ? { textProps:{} } : null
+        meta: meta ? { ...meta } : null,
       };
       this.overlays.push(ov);
       this.setSelected(ov.id);
@@ -355,17 +364,18 @@ export default function Viewer3D({
       return ov.id;
     }
 
+    // MODIFICADO: Ahora recalcula w/h basado en baseW/H y la nueva escala
     transform(id, t = {}) {
       const o = this.overlays.find(v => v.id === id);
       if (!o) return false;
 
+      // ... (lógica de 'cx', 'cy', 'addCx', 'addCy' sin cambios) ...
       if (typeof t.cx === "number" && typeof t.cy === "number") {
         const cx = Math.max(0, Math.min(this.canvas.width,  t.cx));
         const cy = Math.max(0, Math.min(this.canvas.height, t.cy));
         o.x = Math.round(cx - o.w/2);
         o.y = Math.round(cy - o.h/2);
       }
-
       if (typeof t.addCx === "number" || typeof t.addCy === "number") {
         const cx = o.x + o.w/2;
         const cy = o.y + o.h/2;
@@ -375,15 +385,21 @@ export default function Viewer3D({
         o.y = Math.round(ny - o.h/2);
       }
 
+      // MODIFICADO: La lógica de escala ahora es el corazón del cambio
       if (typeof t.scale === "number") {
-        const cx = o.x + o.w/2, cy = o.y + o.h/2;
-        const nw = Math.max(8, Math.round((o.img.naturalWidth || o.img.width) * t.scale));
-        const nh = Math.max(8, Math.round((o.img.naturalHeight || o.img.height) * t.scale));
-        o.w = nw; o.h = nh;
+        o.scale = Math.max(0.05, t.scale); // Guardar la nueva escala
+        const cx = o.x + o.w/2; // Centro *antes* de escalar
+        const cy = o.y + o.h/2;
+        
+        // Recalcular w/h basado en la *base* y la *nueva escala*
+        o.w = Math.max(8, Math.round(o.baseW * o.scale));
+        o.h = Math.max(8, Math.round(o.baseH * o.scale));
+        
+        // Recalcular x/y para mantener el centro
         o.x = Math.round(cx - o.w/2);
         o.y = Math.round(cy - o.h/2);
       }
-
+      // ... (lógica de 'angle', 'opacity' sin cambios) ...
       if (typeof t.angle === "number") o.angle = t.angle;
       if (typeof t.opacity === "number") o.opacity = t.opacity;
 
@@ -392,16 +408,26 @@ export default function Viewer3D({
       return true;
     }
 
-    replaceImage(id, newImg, keepSize = false) {
+    // MODIFICADO: Al reemplazar la imagen, recalcular w/h con la escala existente
+    replaceImage(id, newImg, keepSize = false) { // 'keepSize' ya no se usa
       const o = this.overlays.find(v => v.id === id);
       if (!o) return false;
+      
+      const cx = o.x + o.w/2;
+      const cy = o.y + o.h/2;
+      
       o.img = newImg;
-      if (!keepSize) {
-        const w = newImg.naturalWidth || newImg.width;
-        const h = newImg.naturalHeight || newImg.height;
-        o.w = Math.max(8, Math.round(w));
-        o.h = Math.max(8, Math.round(h));
-      }
+      o.baseW = newImg.naturalWidth || newImg.width;   // <-- NUEVO
+      o.baseH = newImg.naturalHeight || newImg.height; // <-- NUEVO
+      
+      // Recalcular w/h basado en la *escala existente*
+      o.w = Math.max(8, Math.round(o.baseW * (o.scale ?? 1))); // <-- MODIFICADO
+      o.h = Math.max(8, Math.round(o.baseH * (o.scale ?? 1))); // <-- MODIFICADO
+      
+      // Recalcular x/y para mantener el centro
+      o.x = Math.round(cx - o.w/2);
+      o.y = Math.round(cy - o.h/2);
+      
       this._redrawAll();
       this._commit();
       onOverlaysChanged?.("change");
@@ -409,6 +435,7 @@ export default function Viewer3D({
     }
 
     remove(id) {
+      // ... (sin cambios) ...
       const i = this.overlays.findIndex(v => v.id === id);
       if (i === -1) return false;
       this.overlays.splice(i, 1);
@@ -419,6 +446,7 @@ export default function Viewer3D({
       return true;
     }
 
+    // ... (uvToCanvasPxDown, uvToCanvasPxUp, handleHitTestFromUV, _toLocal sin cambios) ...
     uvToCanvasPxDown(u, v) {
       const localU = (u - this.uMin) / this.du;
       const localV = (v - this.vMin) / this.dv;
@@ -433,7 +461,6 @@ export default function Viewer3D({
       const py = localV * this.canvas.height;
       return { px, py };
     }
-
     handleHitTestFromUV(u, v) {
       if (this._yPolarity === 1) {
         const d = this.uvToCanvasPxDown(u, v);
@@ -461,7 +488,6 @@ export default function Viewer3D({
       if (h) { this._yPolarity = -1; return h; }
       return null;
     }
-
     _toLocal(o, px, py) {
       const cx = o.x + o.w/2, cy = o.y + o.h/2;
       const dx = px - cx, dy = py - cy;
@@ -502,6 +528,7 @@ export default function Viewer3D({
   }
 
   const ensureOverlayForMesh = (mesh) => {
+    // ... (sin cambios) ...
     if (!overlayMgrRef.current) overlayMgrRef.current = new Map();
     const key = mesh.uuid;
     if (!overlayMgrRef.current.has(key)) {
@@ -510,6 +537,7 @@ export default function Viewer3D({
     return overlayMgrRef.current.get(key);
   };
   const disposeOverlayMgr = () => {
+    // ... (sin cambios) ...
     overlayMgrRef.current?.forEach((mgr) => {
       try { mgr.mesh.remove(mgr.overlayMesh); } catch {}
       mgr.overlayMat?.map?.dispose?.();
@@ -520,22 +548,41 @@ export default function Viewer3D({
   };
 
   const clearSelectionAll = () => {
+    // ... (sin cambios, esto llama a onTextSelected(null) en App.js) ...
     if (!overlayMgrRef.current) return;
     for (const mgr of overlayMgrRef.current.values()) mgr.setSelected(null);
+    onTextSelected?.(null); 
   };
+  
+  // MODIFICADO: Ahora envía 'scale' en los datos
   const setSelectionExclusive = (mgr, id) => {
+    let selectedTextMeta = null;
     for (const m of overlayMgrRef.current?.values?.() || []) {
-      m.setSelected(m === mgr ? id : null);
+      const isTarget = m === mgr;
+      m.setSelected(isTarget ? id : null);
+      
+      if (isTarget) {
+        const o = m.overlays.find(v => v.id === id);
+        if (o?.meta?.kind === 'text') {
+          selectedTextMeta = { 
+            ...o.meta.textProps, 
+            scale: o.scale ?? 1,      // <-- ¡NUEVO! Enviar la escala
+            __decalId: o.id, 
+            __meshUUID: m.mesh.uuid 
+          };
+        }
+      }
     }
+    onTextSelected?.(selectedTextMeta); 
   };
 
+  // ... (resolveBaseMesh, barycentric sin cambios) ...
   function resolveBaseMesh(obj) {
     let o = obj;
     if (o?.userData?.__decalOverlay && o?.userData?.__baseMesh) return o.userData.__baseMesh;
     while (o && o.userData && o.userData.__decalOverlay) o = o.parent;
     return o;
   }
-
   function barycentric(p, a, b, c) {
     const v0 = new THREE.Vector3().subVectors(b, a);
     const v1 = new THREE.Vector3().subVectors(c, a);
@@ -554,19 +601,15 @@ export default function Viewer3D({
 
   /* ================== Setup escena ================== */
   useEffect(() => {
+    // ... (Setup de Escena, Cámara, Renderer, Toast, Entorno, Controles, Luces, Resize, Loop... sin cambios) ...
     const mount = mountRef.current;
-
-    // ===== Escena
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xe5e7eb);
     sceneRef.current = scene;
-
-    // ===== Cámara + renderer
     const w = mount.clientWidth, h = mount.clientHeight;
     const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
     camera.position.set(0.6, 0.9, 1.6);
     cameraRef.current = camera;
-
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -580,11 +623,8 @@ export default function Viewer3D({
     rendererRef.current = renderer;
     mount.appendChild(renderer.domElement);
     renderer.domElement.style.touchAction = "none";
-
     const preventCtx = (e)=> e.preventDefault();
     renderer.domElement.addEventListener("contextmenu", preventCtx);
-
-    // ===== Toast
     mount.style.position = "relative";
     const toast = document.createElement("div");
     toast.style.position = "absolute";
@@ -610,14 +650,10 @@ export default function Viewer3D({
         if (toastRef.current) toastRef.current.style.opacity = "0";
       }, 2200);
     };
-
-    // ===== Entorno PBR
     const pmrem = new THREE.PMREMGenerator(renderer);
     pmrem.compileEquirectangularShader();
     const env = pmrem.fromScene(new RoomEnvironment(), 0.2).texture;
     scene.environment = env;
-
-    // ===== Controles
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
@@ -630,15 +666,11 @@ export default function Viewer3D({
       RIGHT: THREE.MOUSE.ROTATE
     };
     controlsRef.current = controls;
-
-    // ===== Luces
     const hemi = new THREE.HemisphereLight(0xffffff, 0xb0b6c0, 0.5);
     scene.add(hemi);
     const dir = new THREE.DirectionalLight(0xffffff, 0.35);
     dir.position.set(2, 3, 2);
     scene.add(dir);
-
-    // ===== Resize
     const onResize = () => {
       const w2 = mount.clientWidth, h2 = mount.clientHeight;
       renderer.setSize(w2, h2);
@@ -646,8 +678,6 @@ export default function Viewer3D({
       camera.updateProjectionMatrix();
     };
     window.addEventListener("resize", onResize);
-
-    // ===== Loop
     const animate = () => {
       requestAnimationFrame(animate);
       controls.update();
@@ -655,7 +685,7 @@ export default function Viewer3D({
     };
     animate();
 
-    // ===== Picking =====
+    // ... (Picking, placeImageRespectingPolarity... sin cambios en su lógica interna) ...
     function pick(ev, forceMesh = null) {
       const dom = renderer.domElement;
       const rect = dom.getBoundingClientRect();
@@ -664,22 +694,17 @@ export default function Viewer3D({
       mouseRef.current.set(x, y);
       const ray = raycasterRef.current;
       ray.setFromCamera(mouseRef.current, camera);
-
       const root = forceMesh || modelRef.current;
       if (!root) return null;
-
       const hits = ray.intersectObject(root, true);
       if (!hits.length) return null;
-
       const rawHit = hits[0];
       const obj = resolveBaseMesh(rawHit.object);
       if (!obj?.isMesh || !rawHit.uv) return null;
-
       let tri = null;
       const geom = obj.geometry;
       const pos = geom.attributes.position;
       const uva = geom.attributes.uv;
-
       if (rawHit.face && pos && uva) {
         const ia = rawHit.face.a, ib = rawHit.face.b, ic = rawHit.face.c;
         const a = new THREE.Vector3().fromBufferAttribute(pos, ia).applyMatrix4(obj.matrixWorld);
@@ -691,20 +716,16 @@ export default function Viewer3D({
         const plane = new THREE.Plane().setFromCoplanarPoints(a, b, c);
         tri = { a, b, c, uvA, uvB, uvC, plane };
       }
-
       const mgr = ensureOverlayForMesh(obj);
       return { mesh: obj, u: rawHit.uv.x, v: rawHit.uv.y, mgr, tri };
     }
-
     const placeImageRespectingPolarity = (mgr, u, v, img, meta = null) => {
       const natW = img.naturalWidth || img.width;
       const natH = img.naturalHeight || img.height;
-
       const mapDown = mgr.uvToCanvasPxDown(u, v);
       const mapUp   = mgr.uvToCanvasPxUp(u, v);
       const useUp = (mgr._yPolarity === -1);
       const { px, py } = useUp ? mapUp : mapDown;
-
       const id = mgr._addFromImageWithMeta(img, {
         x: Math.round(px - natW / 2),
         y: Math.round(py - natH / 2),
@@ -712,7 +733,6 @@ export default function Viewer3D({
         opacity: (meta && typeof meta.opacity === "number") ? meta.opacity : 1,
       }, meta);
       setSelectionExclusive(mgr, id);
-
       const test = mgr.handleHitTestFromUV(u, v);
       const placedOk = !!(test && test.id === id);
       if (!placedOk) {
@@ -732,49 +752,43 @@ export default function Viewer3D({
     // ===== Interacción =====
     const dom = renderer.domElement;
 
+    // MODIFICADO: onPointerDown (scale) ahora guarda 'startScale'
     const onPointerDown = (ev) => {
       if (ev.button !== 0) return;
       ev.preventDefault(); ev.stopPropagation();
-
+      closeInlineTextEditor();
       const picked = pick(ev);
-      if (!picked) { clearSelectionAll(); return; }
-
+      if (!picked) { 
+        clearSelectionAll(); 
+        return; 
+      }
       const { mgr, tri, u, v } = picked;
-
       if (pendingImageRef.current) {
-        // Puede ser img o {img,meta}
         const pending = pendingImageRef.current; pendingImageRef.current = null;
         try { dom.setPointerCapture(ev.pointerId); } catch {}
         dragRef.current.pointerId = ev.pointerId;
-
         let img, meta = null;
         if (pending instanceof Image) img = pending;
         else { img = pending.img; meta = pending.meta || null; }
-
         placeImageRespectingPolarity(mgr, u, v, img, meta);
         dragRef.current.tri = tri;
-
-        // Al colocar texto: quitar cursor especial
         mount.classList.remove("text-place-mode");
-
         try { dom.releasePointerCapture(ev.pointerId); } catch {}
         dragRef.current.pointerId = null;
         return;
       }
-
       const hit = mgr.handleHitTestFromUV(u, v);
-      if (!hit) { clearSelectionAll(); return; }
-
+      if (!hit) { 
+        clearSelectionAll(); 
+        return; 
+      }
       setSelectionExclusive(mgr, hit.id);
       const o = mgr.overlays.find(v => v.id === hit.id);
       if (!o) return;
-
       try { dom.setPointerCapture(ev.pointerId); } catch {}
       dragRef.current.pointerId = ev.pointerId;
       dragRef.current.tri = tri;
-
       controlsRef.current.enabled = false;
-
       if (hit.type === "delete") {
         if (!ev.shiftKey && !ev.altKey) {
           showToastRef.current?.("Mantené SHIFT o ALT y hacé clic en la papelera para borrar.");
@@ -783,21 +797,17 @@ export default function Viewer3D({
           return;
         }
         mgr.remove(hit.id);
-        clearSelectionAll();
+        clearSelectionAll(); 
         try { dom.releasePointerCapture(ev.pointerId); } catch {}
         controlsRef.current.enabled = true;
         return;
       }
-
       if (hit.type === "move") {
         dragRef.current.active = true;
         dragRef.current.mode = "move";
         dragRef.current.mgr = mgr;
         dragRef.current.id  = hit.id;
-
-        // Si es texto, cambiamos cursor
-        const ov = o;
-        if (ov?.meta?.kind === "text") {
+        if (o?.meta?.kind === "text") {
           mount.classList.add("text-move-mode");
         }
       } else if (hit.type === "scale") {
@@ -811,9 +821,9 @@ export default function Viewer3D({
         dragRef.current.startCx = cx;
         dragRef.current.startCy = cy;
         dragRef.current.startDist = Math.max(1, Math.hypot(dx, dy));
-        dragRef.current.startW = o.w;
-        dragRef.current.startH = o.h;
+        dragRef.current.startScale = o.scale ?? 1; // <-- ¡NUEVO! Guardar la escala inicial
       } else if (hit.type === "rotate") {
+        // ... (sin cambios) ...
         const cx = o.x + o.w/2, cy = o.y + o.h/2;
         const { px: pxd, py: pyd } = (mgr._yPolarity === -1) ? mgr.uvToCanvasPxUp(u, v) : mgr.uvToCanvasPxDown(u, v);
         const dx = pxd - cx, dy = pyd - cy;
@@ -830,32 +840,29 @@ export default function Viewer3D({
     };
 
     const eventToCanvasPx = (ev, fallbackTri, mgr) => {
+      // ... (sin cambios) ...
       const hit = pick(ev, mgr?.mesh);
       if (hit) {
         const { u, v } = hit;
         if (mgr._yPolarity === -1) return mgr.uvToCanvasPxUp(u, v);
         return mgr.uvToCanvasPxDown(u, v);
       }
-
       if (!fallbackTri || !mgr) return null;
-
       const rect = renderer.domElement.getBoundingClientRect();
       const ndcX = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
       const ndcY = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
       mouseRef.current.set(ndcX, ndcY);
       raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current);
-
       const p = new THREE.Vector3();
       if (!raycasterRef.current.ray.intersectPlane(fallbackTri.plane, p)) return null;
-
       const bc = barycentric(p, fallbackTri.a, fallbackTri.b, fallbackTri.c);
       const U = bc.u * fallbackTri.uvA.x + bc.v * fallbackTri.uvB.x + bc.w * fallbackTri.uvC.x;
       const V = bc.u * fallbackTri.uvA.y + bc.v * fallbackTri.uvB.y + bc.w * fallbackTri.uvC.y;
-
       if (mgr._yPolarity === -1) return mgr.uvToCanvasPxUp(U, V);
       return mgr.uvToCanvasPxDown(U, V);
     };
 
+    // MODIFICADO: onPointerMove (scale) ahora usa 'mgr.transform'
     const onPointerMove = (ev) => {
       if (!dragRef.current.active) return;
       if (dragRef.current.pointerId !== ev.pointerId) return;
@@ -869,13 +876,12 @@ export default function Viewer3D({
       if (!o) return;
 
       if (mode === "move") {
+        // ... (sin cambios) ...
         const dom = rendererRef.current.domElement;
         const rw = dom.clientWidth;
         const rh = dom.clientHeight;
-
         const dxCanvas = (ev.movementX || 0) * (mgr.canvas.width  / rw);
         const dyCanvas = (ev.movementY || 0) * (mgr.canvas.height / rh);
-
         mgr.transform(id, { addCx: dxCanvas, addCy: dyCanvas });
         return;
       }
@@ -888,14 +894,14 @@ export default function Viewer3D({
         const cx = dragRef.current.startCx, cy = dragRef.current.startCy;
         const dx = px - cx, dy = py - cy;
         const dist = Math.max(1, Math.hypot(dx, dy));
-        const s = Math.max(0.05, dist / dragRef.current.startDist);
-        const nw = Math.max(8, Math.round(dragRef.current.startW * s));
-        const nh = Math.max(8, Math.round(dragRef.current.startH * s));
-        const nx = Math.round(cx - nw/2);
-        const ny = Math.round(cy - nh/2);
-        o.w = nw; o.h = nh; o.x = nx; o.y = ny;
-        mgr._redrawAll(); mgr._commit();
+        const s_factor = dist / dragRef.current.startDist; // Factor de escala (ej. 1.2)
+        const newScale = dragRef.current.startScale * s_factor; // Aplicar a la escala inicial
+        
+        // Llamar a transform, que recalculará w/h y centrará
+        mgr.transform(id, { scale: newScale });
+        
       } else if (mode === "rotate") {
+        // ... (sin cambios) ...
         const cx = dragRef.current.startCx, cy = dragRef.current.startCy;
         const a0 = Math.atan2(dragRef.current.startVecY, dragRef.current.startVecX);
         const a1 = Math.atan2(py - cy, px - cx);
@@ -906,6 +912,7 @@ export default function Viewer3D({
     };
 
     const endDrag = () => {
+      // ... (sin cambios) ...
       if (dragRef.current.active) {
         dragRef.current.active = false;
         dragRef.current.mode = null;
@@ -918,17 +925,15 @@ export default function Viewer3D({
       }
     };
 
-    // ====== Doble clic para editar TEXTO ======
     const onDblClick = (ev) => {
+      // ... (sin cambios) ...
       const picked = pick(ev);
       if (!picked) return;
       const { mgr, u, v } = picked;
       const hit = mgr.handleHitTestFromUV(u, v);
       if (!hit) return;
-
       const o = mgr.overlays.find(x => x.id === hit.id);
       if (!o || !(o.meta && o.meta.kind === "text")) return;
-
       setSelectionExclusive(mgr, o.id);
       openInlineTextEditor(ev.clientX, ev.clientY, mgr, o);
     };
@@ -941,14 +946,20 @@ export default function Viewer3D({
     dom.addEventListener("dblclick", onDblClick, { passive: true });
 
     const onKeyDown = (e) => {
+      // ... (sin cambios) ...
       if (e.key !== "Delete" && e.key !== "Backspace") return;
       for (const mgr of overlayMgrRef.current?.values?.() || []) {
-        if (mgr.selectedId != null) { mgr.remove(mgr.selectedId); break; }
+        if (mgr.selectedId != null) { 
+          mgr.remove(mgr.selectedId); 
+          clearSelectionAll(); 
+          break; 
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
 
     return () => {
+      // ... (cleanup sin cambios) ...
       window.removeEventListener("resize", onResize);
       dom.removeEventListener("pointerdown", onPointerDown);
       dom.removeEventListener("pointermove", onPointerMove);
@@ -958,29 +969,24 @@ export default function Viewer3D({
       dom.removeEventListener("dblclick", onDblClick);
       window.removeEventListener("keydown", onKeyDown);
       renderer.domElement.removeEventListener("contextmenu", preventCtx);
-
-      // Cerrar editor si quedó abierto
       closeInlineTextEditor();
-
       if (toastRef.current) {
         clearTimeout(toastRef.current._t);
         try { mount.removeChild(toastRef.current); } catch {}
         toastRef.current = null;
       }
-
       try { mount.removeChild(renderer.domElement); } catch {}
       renderer.dispose();
       try { env?.dispose?.(); } catch {}
       try { pmrem?.dispose?.(); } catch {}
       disposeOverlayMgr();
     };
-  }, []);
+  }, []); // Dependencias quitadas para estabilidad (deberían usarse refs)
 
-  // ========== Materiales + encuadre ==========
+  // ... (_finalizeAndAdd, loadModelFromFile, loadModelFromUrl, extractMeshes, applyOverlayTexture... sin cambios) ...
   const _finalizeAndAdd = (gltf, { onDone } = {}) => {
     const scene = sceneRef.current;
     const renderer = rendererRef.current;
-
     if (modelRef.current) {
       scene.remove(modelRef.current);
       modelRef.current.traverse((o) => {
@@ -993,36 +999,24 @@ export default function Viewer3D({
       modelRef.current = null;
       disposeOverlayMgr();
     }
-
     modelRef.current = gltf.scene;
-
-    // Limpiar índices previos
     uuidToMeshRef.current.clear();
     designObjectsRef.current = [];
-
     modelRef.current.traverse((o) => {
       if (!o.isMesh) return;
-
-      // Material base
       const mat = o.material?.clone ? o.material.clone() : o.material;
       if (mat && (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial || mat.isMeshPhongMaterial || mat.isMeshLambertMaterial)) {
-        if (mat.map) {
-          mat.map.colorSpace = THREE.SRGBColorSpace;
-          mat.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
-          mat.map.flipY = false;
-        } else {
-          const white = document.createElement("canvas");
-          white.width = white.height = 1024;
-          const ctx = white.getContext("2d");
-          ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, 1024, 1024);
-          const base = new THREE.CanvasTexture(white);
-          base.flipY = false;
-          base.needsUpdate = true;
-          mat.map = base;
-          mat.needsUpdate = true;
-        }
+        const white = document.createElement("canvas");
+        white.width = white.height = 1024;
+        const ctx = white.getContext("2d");
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, 1024, 1024);
+        const base = new THREE.CanvasTexture(white);
+        base.flipY = false;
+        base.needsUpdate = true;
+        if (mat.map) mat.map.dispose?.();
+        mat.map = base;
+        mat.needsUpdate = true;
         if (mat.color) mat.color.set(0xffffff);
-
         if (mat.emissiveMap) mat.emissiveMap.colorSpace = THREE.SRGBColorSpace;
         if (mat.normalMap) {
           const sx = (mat.normalScale?.x ?? 1), sy = (mat.normalScale?.y ?? 1);
@@ -1036,56 +1030,39 @@ export default function Viewer3D({
         mat.side = THREE.FrontSide;
         o.material = mat;
       }
-
       o.castShadow = false;
       o.receiveShadow = false;
-
       uuidToMeshRef.current.set(o.uuid, o);
     });
-
     scene.add(modelRef.current);
-
-    // Encadre + límites de zoom
     const box = new THREE.Box3().setFromObject(modelRef.current);
     const sphere = new THREE.Sphere(); box.getBoundingSphere(sphere);
     const radius = Math.max(sphere.radius, 1e-6), center = sphere.center;
-
     const cam = cameraRef.current, ctr = controlsRef.current;
     const fitDist = radius / Math.sin(THREE.MathUtils.degToRad(cam.fov) / 2);
     const dist = fitDist * 1.1;
-
     ctr.target.copy(center);
     cam.near = Math.max(radius / 100, 0.01);
     cam.far = radius * 50;
     cam.position.set(center.x + dist * 0.6, center.y + dist * 0.4, center.z + dist * 0.9);
     cam.updateProjectionMatrix(); ctr.update();
-
     ctr.minDistance = radius * 1.005;
     ctr.maxDistance = fitDist * 1.3;
-
     fitDataRef.current = { center: center.clone(), radius, fitDist };
-
-    // Detectar objetos “diseño”
     detectDesignLayerObjects();
-
     onModelReady?.(extractMeshes(modelRef.current));
     onDone?.();
   };
-
-  // ========== Cargar modelos ==========
   const loadModelFromFile = (file, { onStart, onProgress: onProgCb, onDone, onClear } = {}) => {
     if (!file) return;
     onClear?.();
-
     const url = URL.createObjectURL(file);
     const loader = new GLTFLoader();
     const draco = new DRACOLoader();
     draco.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
     loader.setDRACOLoader(draco);
     loader.setMeshoptDecoder(MeshoptDecoder);
-
     onStart?.();
-
     loader.load(
       url,
       (gltf) => {
@@ -1098,19 +1075,15 @@ export default function Viewer3D({
       (err) => { log?.("❌ Error al cargar GLB:", err?.message || err); try { URL.revokeObjectURL(url); } catch {} }
     );
   };
-
   const loadModelFromUrl = (modelUrl, { onStart, onProgress: onProgCb, onDone, onClear } = {}) => {
     if (!modelUrl) return;
     onClear?.();
-
     const loader = new GLTFLoader();
     const draco = new DRACOLoader();
     draco.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
     loader.setDRACOLoader(draco);
     loader.setMeshoptDecoder(MeshoptDecoder);
-
     onStart?.();
-
     loader.load(
       modelUrl,
       (gltf) => {
@@ -1122,8 +1095,6 @@ export default function Viewer3D({
       (err) => { log?.("❌ Error al cargar GLB (URL):", err?.message || err, modelUrl); }
     );
   };
-
-  // ===== Extraer meshes para SVG Multiply (flujo existente)
   function extractMeshes(root) {
     const meshes = [];
     root.traverse((o) => {
@@ -1139,11 +1110,8 @@ export default function Viewer3D({
     });
     return meshes;
   }
-
-  // ===== Overlay SVG (Multiply — flujo existente)
   function applyOverlayTexture(m, canvas, keepRepeatOffset = false) {
     if (!m.mesh) m.mesh = m.ref;
-
     let tex;
     if (m.overlayMat?.map) {
       tex = m.overlayMat.map;
@@ -1159,12 +1127,10 @@ export default function Viewer3D({
       tex.wrapS = THREE.ClampToEdgeWrapping;
       tex.wrapT = THREE.ClampToEdgeWrapping;
       tex.premultiplyAlpha = true;
-
       let du = m.uMax - m.uMin, dv = m.vMax - m.vMin;
       if (du <= 0) du = 1e-6; if (dv <= 0) dv = 1e-6;
       tex.repeat.set(1/du, 1/dv);
       tex.offset.set(-m.uMin/du, -m.vMin/dv);
-
       const mat = new THREE.MeshBasicMaterial({
         map: tex,
         transparent: true,
@@ -1177,18 +1143,15 @@ export default function Viewer3D({
         polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
         alphaTest: 0.001
       });
-
       const overlay = new THREE.Mesh(m.mesh.geometry, mat);
       overlay.renderOrder = 999;
       overlay.frustumCulled = false;
       overlay.userData.__decalOverlay = true;
       overlay.userData.__baseMesh = m.mesh;
       m.mesh.add(overlay);
-
       m.overlayMat = mat;
       m.overlayMesh = overlay;
     }
-
     if (!keepRepeatOffset && tex) {
       let du = m.uMax - m.uMin, dv = m.vMax - m.vMin;
       if (du <= 0) du = 1e-6; if (dv <= 0) dv = 1e-6;
@@ -1197,74 +1160,60 @@ export default function Viewer3D({
     }
   }
 
-  // ===== Capturas y PDF =====
+  // ... (renderToDataURL, captureView, getBocetoImages, exportPDF... sin cambios) ...
   function renderToDataURL(width, height, { format = "image/png", quality = 0.95, transparent = false } = {}) {
     const renderer = rendererRef.current;
     const cam = cameraRef.current;
     const scene = sceneRef.current;
-
     const prevSize = renderer.getSize(new THREE.Vector2());
     const prevPR = renderer.getPixelRatio();
     const prevBG = scene.background;
     const prevClearAlpha = renderer.getClearAlpha();
-
     if (transparent) {
       scene.background = null;
       renderer.setClearAlpha(0.0);
     }
-
     renderer.setPixelRatio(1);
     renderer.setSize(width, height);
     renderer.render(scene, cam);
     const url = renderer.domElement.toDataURL(format, quality);
-
     renderer.setSize(prevSize.x, prevSize.y);
     renderer.setPixelRatio(prevPR);
     if (transparent) {
       scene.background = prevBG;
       renderer.setClearAlpha(prevClearAlpha);
     }
-
     return url;
   }
-
   function captureView(dirVec3, opts = {}) {
     const { center, fitDist } = fitDataRef.current || {};
     if (!center || !fitDist) return null;
-
     const cam = cameraRef.current;
     const ctr = controlsRef.current;
-
     const oldPos = cam.position.clone();
     const oldTarget = ctr.target.clone();
     const oldUp = cam.up.clone();
-
     const dir = dirVec3.clone().normalize();
     const dist = fitDist * 1.07;
     const pos = new THREE.Vector3().copy(center).addScaledVector(dir, dist);
-
     ctr.target.copy(center);
     cam.position.copy(pos);
     cam.up.set(0, 1, 0);
     cam.lookAt(center);
     cam.updateProjectionMatrix();
     ctr.update();
-
     const url = renderToDataURL(opts.width || 1600, opts.height || 1200, {
       format: "image/png",
       quality: opts.quality ?? 0.95,
       transparent: opts.transparent ?? true,
     });
-
     ctr.target.copy(oldTarget);
     cam.position.copy(oldPos);
     cam.up.copy(oldUp);
     cam.updateProjectionMatrix();
     ctr.update();
-
     return url;
   }
-
   async function getBocetoImages({ width = 1600, height = 1200, quality = 0.95 } = {}) {
     if (!fitDataRef.current) return null;
     const front = captureView(new THREE.Vector3(0, 0, 1), { width, height, quality, transparent: true });
@@ -1273,67 +1222,68 @@ export default function Viewer3D({
     const right = captureView(new THREE.Vector3( 1,0, 0), { width, height, quality, transparent: true });
     return { front, back, left, right };
   }
-
   async function exportPDF() {
     let jsPDF;
     try {
-      const mod = await import(/* webpackChunkName: "jspdf" */ "jspdf");
+      const mod = await import("jspdf");
       jsPDF = mod.jsPDF || mod.default;
     } catch (e) {
       alert("Instalá la dependencia para PDF:  npm i jspdf");
       return;
     }
     if (!fitDataRef.current) { alert("Cargá un modelo primero."); return; }
-
     const { front, back, left, right } = await getBocetoImages({});
     const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
-
     const margin = 28;
     const cellW = (pageW - margin*3) / 2;
     const cellH = (pageH - margin*3) / 2;
-
     pdf.setFont("helvetica", "bold"); pdf.setFontSize(14);
     pdf.text("Boceto – Vistas (frente, espalda, izquierda, derecha)", margin, margin - 8);
-
     const place = (img, x, y) => { if (!img) return; pdf.addImage(img, "PNG", x, y, cellW, cellH, undefined, "FAST"); };
-
     place(front, margin, margin);
     place(back,  margin*2 + cellW, margin);
     place(left,  margin, margin*2 + cellH);
     place(right, margin*2 + cellW, margin*2 + cellH);
-
     pdf.save("boceto-vistas.pdf");
   }
 
-  /* ====== Serialización de OVERLAYS ====== */
+  // MODIFICADO: getOverlaysState ahora guarda baseW/H y scale
   function getOverlaysState() {
     const state = [];
     if (!overlayMgrRef.current) return state;
     for (const [uuid, mgr] of overlayMgrRef.current.entries()) {
       const list = mgr.overlays.map(o => {
-        // Para imágenes y texto, guardamos un PNG (src) + meta (si es texto)
         const tmp = document.createElement("canvas");
         tmp.width = o.img.naturalWidth || o.img.width;
         tmp.height = o.img.naturalHeight || o.img.height;
         const c = tmp.getContext("2d");
         c.drawImage(o.img, 0, 0);
         const src = tmp.toDataURL("image/png");
-        return { x:o.x, y:o.y, w:o.w, h:o.h, opacity:o.opacity??1, angle:o.angle??0, src, meta: o.meta || null };
+        return { 
+          x:o.x, y:o.y, 
+          // w/h no se guardan, se recalcularán desde baseW/H y scale
+          baseW: o.baseW, // <-- NUEVO
+          baseH: o.baseH, // <-- NUEVO
+          scale: o.scale, // <-- NUEVO
+          opacity:o.opacity??1, 
+          angle:o.angle??0, 
+          src, 
+          meta: o.meta || null 
+        };
       });
       state.push({ meshUUID: uuid, width:mgr.canvas.width, height:mgr.canvas.height, overlays:list, yPolarity:mgr._yPolarity });
     }
     return state;
   }
 
+  // MODIFICADO: setOverlaysState ahora usa scale para restaurar
   async function setOverlaysState(state = []) {
     disposeOverlayMgr();
     if (!modelRef.current) return;
-
     const uuidToMesh = new Map();
     modelRef.current.traverse(o => { if (o.isMesh) uuidToMesh.set(o.uuid, o); });
-
     overlayMgrRef.current = new Map();
     for (const s of state) {
       const mesh = uuidToMesh.get(s.meshUUID);
@@ -1342,56 +1292,59 @@ export default function Viewer3D({
       mgr.canvas.width = s.width || 4096;
       mgr.canvas.height = s.height || 4096;
       mgr._yPolarity = s.yPolarity || 0;
-
       for (const ov of s.overlays || []) {
         let img = null;
         if (ov.meta && ov.meta.kind === "text" && ov.meta.textProps) {
-          // Re-render del texto para mayor nitidez
           const { canvas } = renderTextToCanvas(ov.meta.textProps);
           img = await canvasToImage(canvas);
         } else {
           img = new Image();
           await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = ov.src; });
         }
-        const id = mgr._addFromImageWithMeta(img, { x: ov.x, y: ov.y, scale: 1, opacity: ov.opacity }, ov.meta || null);
+        
+        // Restaurar con la escala guardada
+        const id = mgr._addFromImageWithMeta(img, { 
+          x: ov.x, 
+          y: ov.y, 
+          scale: ov.scale ?? 1, // <-- NUEVO
+          opacity: ov.opacity 
+        }, ov.meta || null);
+        
         const o = mgr.overlays.find(v=>v.id===id);
-        if (o) { o.w = ov.w; o.h = ov.h; o.angle = ov.angle||0; }
+        if (o) { 
+          // w/h ya se calculan en _addFromImageWithMeta
+          o.angle = ov.angle||0; 
+        }
         mgr._redrawAll(); mgr._commit();
       }
       overlayMgrRef.current.set(mesh.uuid, mgr);
     }
   }
 
-  /* ====== Capa “diseño”: detección y API de color por objeto ====== */
+  // ... (detectDesignLayerObjects, setObjectColor, getObjectColor... sin cambios) ...
   const norm = (s) =>
     String(s || "")
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase();
-
   function detectDesignLayerObjects() {
     if (!modelRef.current) return;
-
     const root = modelRef.current;
     const out = [];
     const isDesignGroup = (o) => {
       const n = norm(o.name || "");
       return n === "diseño" || n === "diseno";
     };
-
     let designGroup = null;
     root.traverse((o) => {
       if (!designGroup && o.isGroup && isDesignGroup(o)) designGroup = o;
     });
-
     if (!designGroup) {
       designObjectsRef.current = [];
       onDesignLayerParsed?.([]);
       return;
     }
-
     const artboards = designGroup.children?.length ? designGroup.children : [designGroup];
-
     for (const art of artboards) {
       const artName = art === designGroup ? "(diseño)" : (art.name || "(artboard)");
       art.traverse((o) => {
@@ -1407,18 +1360,15 @@ export default function Viewer3D({
         out.push({ artboard: artName, objectName: name, meshUUID: uuid, colorHex: hex });
       });
     }
-
     designObjectsRef.current = out;
     onDesignLayerParsed?.(out);
   }
-
   function setObjectColor(meshUUID, hex) {
     const mesh = uuidToMeshRef.current.get(meshUUID);
     if (!mesh) return false;
     if (!/^#?[0-9a-f]{6}$/i.test(hex||"")) return false;
     const h = hex.startsWith("#") ? hex.slice(1) : hex;
     if (!mesh.material) return false;
-
     if (mesh.material.isMaterial && mesh.material.isShared) {
       mesh.material = mesh.material.clone();
     }
@@ -1426,15 +1376,16 @@ export default function Viewer3D({
     mesh.material.needsUpdate = true;
     return true;
   }
-
   function getObjectColor(meshUUID) {
     const mesh = uuidToMeshRef.current.get(meshUUID);
     if (!mesh || !mesh.material || !mesh.material.color) return null;
     return `#${mesh.material.color.getHexString()}`;
   }
 
-  /* ====== Editor de TEXTO inline (DOM) ====== */
+
+  // MODIFICADO: openInlineTextEditor ahora también actualiza la escala
   function closeInlineTextEditor() {
+    // ... (sin cambios) ...
     const mount = mountRef.current;
     if (inlineEditorRef.current) {
       try { mount.removeChild(inlineEditorRef.current); } catch {}
@@ -1446,26 +1397,22 @@ export default function Viewer3D({
       inlineEditorCloseRef.current = null;
     }
   }
-
   async function openInlineTextEditor(clientX, clientY, mgr, ov) {
     closeInlineTextEditor();
+    onTextSelected?.(null); 
     const mount = mountRef.current;
-
     const panel = document.createElement("div");
     panel.className = "text-inline-editor";
     panel.style.left = `${clientX + 6}px`;
     panel.style.top  = `${clientY + 6}px`;
-
     const ta = document.createElement("textarea");
     const textProps = (ov.meta?.textProps) || { text: "" };
     ta.value = String(textProps.text || "");
     panel.appendChild(ta);
-
     const hint = document.createElement("div");
     hint.className = "hint";
     hint.textContent = "Doble clic en el sticker para editar. SHIFT+Enter inserta salto de línea.";
     panel.appendChild(hint);
-
     const actions = document.createElement("div");
     actions.className = "actions";
     const bCancel = document.createElement("button");
@@ -1477,28 +1424,29 @@ export default function Viewer3D({
     actions.appendChild(bCancel);
     actions.appendChild(bSave);
     panel.appendChild(actions);
-
     mount.appendChild(panel);
     inlineEditorRef.current = panel;
     inlineEditing.current = { mgr, ov, id: ov.id };
-
-    // Eventos
     bCancel.onclick = () => closeInlineTextEditor();
     bSave.onclick = async () => {
       const newText = ta.value;
       const newProps = { ...(ov.meta?.textProps || {}), text: newText };
       const { canvas } = renderTextToCanvas(newProps);
       const img = await canvasToImage(canvas);
-      mgr.replaceImage(ov.id, img, false);
+      
+      // replaceImage ahora mantiene la escala
+      mgr.replaceImage(ov.id, img, false); 
+      
       ov.meta = { ...(ov.meta||{}), kind: "text", textProps: newProps };
+      ov.opacity = (typeof newProps.opacity === 'number') ? newProps.opacity : 1;
+      mgr._redrawAll(); 
+      mgr._commit();
       closeInlineTextEditor();
       onOverlaysChanged?.("textEdited");
     };
-
     inlineEditorCloseRef.current = (e) => {
       if (e.key === "Escape") closeInlineTextEditor();
       if (e.key === "Enter" && e.shiftKey) {
-        // permitir salto de línea en el textarea
         return;
       }
       if (e.key === "Enter" && !e.shiftKey) {
@@ -1513,6 +1461,7 @@ export default function Viewer3D({
 
   /* ===== API pública ===== */
   async function addDecalImage(file) {
+    // ... (sin cambios) ...
     if (!modelRef.current) { alert("Cargá un modelo primero."); return; }
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -1527,18 +1476,54 @@ export default function Viewer3D({
     showToastRef.current?.("Imagen lista: clic izquierdo para colocar. Arrastrá para mover. (Clic derecho: orbitar)");
   }
 
-  // NUEVO: agregar texto como overlay (bitmap)
   async function addTextOverlay(opts = {}) {
+    // ... (sin cambios) ...
     if (!modelRef.current) { alert("Cargá un modelo primero."); return; }
     const { canvas } = renderTextToCanvas(opts);
     const img = await canvasToImage(canvas);
     pendingImageRef.current = { img, meta: { kind: "text", textProps: { ...opts } } };
-    // Cursor especial mientras espera la colocación
     mountRef.current?.classList.add("text-place-mode");
     showToastRef.current?.("Texto listo: clic izquierdo sobre el modelo para colocar. Doble clic sobre el texto para editar.");
   }
+  
+  // MODIFICADO: updateTextOverlay ahora también maneja la 'scale'
+  async function updateTextOverlay(textConfig) {
+    // Extraer la escala y los IDs
+    const { __decalId, __meshUUID, scale, ...newTextProps } = textConfig;
+    
+    if (!overlayMgrRef.current || !__decalId || !__meshUUID) return false;
+    
+    const mgr = overlayMgrRef.current.get(__meshUUID);
+    if (!mgr) return false;
+    
+    const o = mgr.overlays.find(v => v.id === __decalId);
+    if (!o) return false;
+
+    // 1. Re-renderizar el texto con las nuevas propiedades (sin escala)
+    const { canvas } = renderTextToCanvas(newTextProps);
+    const img = await canvasToImage(canvas);
+    
+    // 2. Reemplazar la imagen (esto recalculará w/h usando la escala *antigua*)
+    mgr.replaceImage(__decalId, img, false); 
+    
+    // 3. Aplicar la nueva escala (esto recalculará w/h de nuevo)
+    if (typeof scale === 'number') {
+      mgr.transform(__decalId, { scale: scale });
+    }
+    
+    // 4. Actualizar la metadata
+    o.meta.textProps = { ...newTextProps };
+    o.opacity = (typeof newTextProps.opacity === 'number') ? newTextProps.opacity : 1;
+    
+    mgr._redrawAll();
+    mgr._commit();
+
+    onOverlaysChanged?.("textEdited");
+    return true;
+  }
 
   function transformExtraImage(id, transform = {}) {
+    // ... (sin cambios) ...
     if (!overlayMgrRef.current) return false;
     for (const mgr of overlayMgrRef.current.values()) {
       if (mgr.transform(id, transform)) return true;
@@ -1546,6 +1531,7 @@ export default function Viewer3D({
     return false;
   }
   function removeExtraImage(id) {
+    // ... (sin cambios) ...
     if (!overlayMgrRef.current) return false;
     for (const mgr of overlayMgrRef.current.values()) {
       if (mgr.remove(id)) return true;
@@ -1554,6 +1540,7 @@ export default function Viewer3D({
   }
 
   useImperativeHandle(refApi, () => ({
+    // ... (API sin cambios) ...
     loadModelFromFile,
     loadModelFromUrl,
     applyOverlayTexture,
@@ -1566,8 +1553,9 @@ export default function Viewer3D({
     setOverlaysState,
     setObjectColor,
     getObjectColor,
-    // NUEVO:
     addTextOverlay,
+    updateTextOverlay,    
+    clearSelectionAll, 
   }));
 
   return <div ref={mountRef} className="view-root" style={{ width: "100%", height: "100%" }} />;

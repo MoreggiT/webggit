@@ -1,272 +1,281 @@
 // src/components/TextPanel.jsx
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+// 1. Importaremos un archivo CSS nuevo que te daré en el próximo paso
+import "./TextPanel.css"; 
 
-const PRESETS = [
-  { label: "Título", size: 140, weight: 900, lineHeight: 1.1 },
-  { label: "Subtítulo", size: 96, weight: 800, lineHeight: 1.15 },
-  { label: "Cuerpo", size: 64, weight: 700, lineHeight: 1.25 },
+// Definimos las fuentes aquí para que sea fácil agregar más
+const FONT_OPTIONS = [
+  { name: "Inter", value: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif' },
+  { name: "Montserrat", value: '"Montserrat", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif' },
+  { name: "Poppins", value: '"Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif' },
+  { name: "Bebas Neue", value: '"Bebas Neue", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif' },
+  { name: "Oswald", value: '"Oswald", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif' },
 ];
 
-const FONTS = [
-  'Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
-  '"Montserrat", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
-  '"Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
-  '"Bebas Neue", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
-  '"Oswald", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
+const FONT_WEIGHTS = [
+  { name: "Light", value: 300 },
+  { name: "Regular", value: 400 },
+  { name: "Medium", value: 500 },
+  { name: "Semi-Bold", value: 600 },
+  { name: "Bold", value: 700 },
+  { name: "Extra-Bold", value: 800 },
+  { name: "Black", value: 900 },
 ];
 
 export default function TextPanel({
   open,
   onClose,
   onCreateText,
-  initial = {},
+  onUpdateText,
+  initialData,  
+  editingData,  
 }) {
-  const [text, setText] = useState(initial.text ?? "TU TEXTO AQUÍ");
-  const [fontSize, setFontSize] = useState(initial.fontSize ?? 128);
-  const [fontFamily, setFontFamily] = useState(
-    initial.fontFamily ?? FONTS[0]
-  );
-  const [color, setColor] = useState(initial.color ?? "#000000");
-  const [strokeColor, setStrokeColor] = useState(
-    initial.strokeColor ?? "#ffffff"
-  );
-  const [strokeWidth, setStrokeWidth] = useState(initial.strokeWidth ?? 0);
-  const [align, setAlign] = useState(initial.align ?? "center"); // 'left'|'center'|'right'
-  const [lineHeight, setLineHeight] = useState(initial.lineHeight ?? 1.2);
-  const [padding, setPadding] = useState(initial.padding ?? 32);
-  const [maxWidth, setMaxWidth] = useState(initial.maxWidth ?? 1400);
+  
+  const [formState, setFormState] = useState(initialData);
+  const isEditMode = !!editingData;
 
+  // 2. Sincronizar el estado del formulario cuando cambia la selección
   useEffect(() => {
-    if (!open) return;
-    // Escape para cerrar
-    const onKey = (e) => e.key === "Escape" && onClose?.();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+    if (editingData) {
+      setFormState(editingData);
+    } else {
+      setFormState(initialData);
+    }
+  }, [editingData, initialData, open]); // 'open' resetea al modo 'crear'
 
-  const valid = useMemo(() => String(text).trim().length > 0, [text]);
+  // 3. Handler genérico para todos los inputs
+  // 'value' es procesado (ej. a Número) antes de llamar a esto
+  const handleChange = (key, value) => {
+    const newState = { ...formState, [key]: value };
+    setFormState(newState);
+    
+    // 4. ¡Actualización en vivo! Si estamos editando,
+    // llamamos a onUpdateText inmediatamente.
+    if (isEditMode) {
+      onUpdateText?.(newState);
+    }
+  };
 
-  const applyPreset = (p) => {
-    setFontSize(p.size);
-    setLineHeight(p.lineHeight);
+  // 5. Handler para el botón principal (Crear)
+  const handleSubmit = () => {
+    if (!isEditMode) {
+      onCreateText?.(formState);
+    }
+    // En modo edición, el update es en vivo (arriba),
+    // así que el botón principal podría solo cerrar el panel.
+    // Por ahora, solo lo usaremos para "Crear"
+  };
+
+  // --- Helpers de UI ---
+  const handleNumChange = (key, e) => {
+    handleChange(key, Number(e.target.value));
+  };
+  const handleTxtChange = (key, e) => {
+    handleChange(key, e.target.value);
+  };
+  const handleToggle = (key, value) => {
+    const current = formState[key];
+    handleChange(key, current === value ? "normal" : value);
   };
 
   if (!open) return null;
 
   return (
-    <aside className="right-drawer" role="dialog" aria-label="Texto sobre el 3D">
-      <header className="rd-header">
-        <div className="rd-title">
-          <span className="emoji">📝</span>
-          <div>
-            <div className="h1">Texto sobre el modelo</div>
-            <div className="sub">Se coloca como sticker plano, no 3D</div>
-          </div>
-        </div>
-        <button className="icon-btn" title="Cerrar" onClick={onClose} aria-label="Cerrar panel">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
+    <aside className="text-panel-modern">
+      {/* Encabezado */}
+      <header className="tp-header">
+        <h3>{isEditMode ? "✍️ Editar Texto" : "🅣 Agregar Texto"}</h3>
+        <button className="tp-close-btn" onClick={onClose} title="Cerrar">✕</button>
       </header>
 
-      <div className="rd-body">
-        <div className="form-block">
-          <label className="lbl">Texto</label>
+      {/* Cuerpo del Panel */}
+      <div className="tp-body">
+        
+        {/* --- Contenido --- */}
+        <div className="tp-section">
+          <label htmlFor="text-content">Texto</label>
           <textarea
-            className="inp textarea"
-            rows={5}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Escribí tu texto…"
+            id="text-content"
+            className="tp-textarea"
+            rows={4}
+            value={formState.text}
+            onChange={(e) => handleTxtChange("text", e)}
+            placeholder="Escribí tu texto..."
           />
         </div>
 
-        <div className="form-row">
-          <div className="form-block">
-            <label className="lbl">Tamaño (px)</label>
-            <input
-              className="inp"
-              type="number"
-              min={8}
-              max={360}
-              value={fontSize}
-              onChange={(e) => setFontSize(Number(e.target.value))}
-            />
-          </div>
-          <div className="form-block">
-            <label className="lbl">Interlineado</label>
-            <input
-              className="inp"
-              type="number"
-              step="0.05"
-              min="0.8"
-              max="2.0"
-              value={lineHeight}
-              onChange={(e) => setLineHeight(Number(e.target.value))}
-            />
-          </div>
-        </div>
-
-        <div className="form-block">
-          <label className="lbl">Fuente</label>
+        {/* --- Estilo de Fuente --- */}
+        <div className="tp-section">
+          <label>Fuente</label>
           <select
-            className="inp"
-            value={fontFamily}
-            onChange={(e) => setFontFamily(e.target.value)}
+            className="tp-select"
+            value={formState.fontFamily}
+            onChange={(e) => handleTxtChange("fontFamily", e)}
           >
-            {FONTS.map((f) => (
-              <option key={f} value={f} style={{ fontFamily: f }}>
-                {f.split(",")[0].replace(/"/g, "")}
+            {FONT_OPTIONS.map(f => (
+              <option key={f.name} value={f.value} style={{ fontFamily: f.value }}>
+                {f.name}
               </option>
             ))}
           </select>
-        </div>
-
-        <div className="form-row">
-          <div className="form-block">
-            <label className="lbl">Color</label>
-            <input
-              className="inp color"
-              type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              aria-label="Color del texto"
-            />
-          </div>
-          <div className="form-block">
-            <label className="lbl">Borde</label>
-            <div className="row-actions">
+          
+          <div className="tp-row">
+            <div className="tp-col">
+              <label>Peso</label>
+              <select
+                className="tp-select"
+                value={formState.fontWeight}
+                onChange={(e) => handleNumChange("fontWeight", e)}
+              >
+                {FONT_WEIGHTS.map(w => (
+                  <option key={w.name} value={w.value}>{w.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="tp-col">
+              <label>Tamaño (px)</label>
               <input
-                className="inp color"
-                type="color"
-                value={strokeColor}
-                onChange={(e) => setStrokeColor(e.target.value)}
-                aria-label="Color del borde"
-              />
-              <input
-                className="inp"
+                className="tp-input-num"
                 type="number"
-                min={0}
-                max={40}
-                value={strokeWidth}
-                onChange={(e) => setStrokeWidth(Number(e.target.value))}
-                title="Grosor"
-                style={{ width: 90 }}
+                min={8}
+                max={512}
+                value={formState.fontSize}
+                onChange={(e) => handleNumChange("fontSize", e)}
               />
             </div>
           </div>
         </div>
 
-        <div className="form-row">
-          <div className="form-block">
-            <label className="lbl">Padding (px)</label>
+        {/* --- Color y Apariencia --- */}
+        <div className="tp-section">
+          <label>Color y Opacidad</label>
+          <div className="tp-row">
             <input
-              className="inp"
-              type="number"
-              min={0}
-              max={200}
-              value={padding}
-              onChange={(e) => setPadding(Number(e.target.value))}
+              className="tp-color-picker"
+              type="color"
+              value={formState.color}
+              onChange={(e) => handleTxtChange("color", e)}
             />
-          </div>
-          <div className="form-block">
-            <label className="lbl">Ancho máx. (px)</label>
-            <input
-              className="inp"
-              type="number"
-              min={200}
-              max={4000}
-              value={maxWidth}
-              onChange={(e) => setMaxWidth(Number(e.target.value))}
-            />
+            <div className="tp-col-grow">
+              <input
+                className="tp-slider"
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={formState.opacity}
+                onChange={(e) => handleNumChange("opacity", e)}
+              />
+            </div>
+            <span className="tp-value-label">
+              {Math.round(formState.opacity * 100)}%
+            </span>
           </div>
         </div>
 
-        <div className="form-block">
-          <label className="lbl">Alineación</label>
-          <div className="chip" role="group" aria-label="Alineación">
+        {/* --- Borde --- */}
+        <div className="tp-section">
+          <label>Borde (Contorno)</label>
+          <div className="tp-row">
+            <input
+              className="tp-color-picker"
+              type="color"
+              value={formState.strokeColor}
+              onChange={(e) => handleTxtChange("strokeColor", e)}
+            />
+            <div className="tp-col-grow">
+              <input
+                className="tp-slider"
+                type="range"
+                min={0}
+                max={24}
+                step={1}
+                value={formState.strokeWidth}
+                onChange={(e) => handleNumChange("strokeWidth", e)}
+              />
+            </div>
+            <span className="tp-value-label">
+              {formState.strokeWidth}px
+            </span>
+          </div>
+        </div>
+        
+        {/* --- Formato (Alineación y Estilo) --- */}
+        <div className="tp-section">
+          <label>Formato</label>
+          <div className="tp-btn-group">
             <button
-              className="btn"
-              aria-pressed={align === "left"}
-              onClick={() => setAlign("left")}
-              style={{
-                borderRadius: "999px 0 0 999px",
-                background: align === "left" ? "var(--accent)" : "var(--pill-bg)",
-                color: align === "left" ? "#fff" : "inherit",
-                borderColor: "var(--pill-br)",
-              }}
+              className={`tp-btn ${formState.align === 'left' ? 'active' : ''}`}
+              onClick={() => handleChange("align", "left")}
+              title="Alinear Izquierda"
             >
-              Izq
+              Izquierda
             </button>
             <button
-              className="btn"
-              aria-pressed={align === "center"}
-              onClick={() => setAlign("center")}
-              style={{
-                background: align === "center" ? "var(--accent)" : "var(--pill-bg)",
-                color: align === "center" ? "#fff" : "inherit",
-                borderColor: "var(--pill-br)",
-              }}
+              className={`tp-btn ${formState.align === 'center' ? 'active' : ''}`}
+              onClick={() => handleChange("align", "center")}
+              title="Alinear Centro"
             >
               Centro
             </button>
             <button
-              className="btn"
-              aria-pressed={align === "right"}
-              onClick={() => setAlign("right")}
-              style={{
-                borderRadius: "0 999px 999px 0",
-                background: align === "right" ? "var(--accent)" : "var(--pill-bg)",
-                color: align === "right" ? "#fff" : "inherit",
-                borderColor: "var(--pill-br)",
-              }}
+              className={`tp-btn ${formState.align === 'right' ? 'active' : ''}`}
+              onClick={() => handleChange("align", "right")}
+              title="Alinear Derecha"
             >
-              Der
+              Derecha
+            </button>
+            <button
+              className={`tp-btn ${formState.fontStyle === 'italic' ? 'active' : ''}`}
+              onClick={() => handleToggle("fontStyle", "italic")}
+              title="Cursiva"
+              style={{ fontStyle: 'italic' }}
+            >
+              K
             </button>
           </div>
         </div>
 
-        <div className="form-block">
-          <label className="lbl">Presets rápidos</label>
-          <div className="chips">
-            {PRESETS.map((p) => (
-              <button
-                key={p.label}
-                className="btn"
-                onClick={() => applyPreset(p)}
-                title={`${p.label} · ${p.size}px`}
-              >
-                {p.label}
-              </button>
-            ))}
+        {/* --- 6. LA NUEVA SECCIÓN: Transformar (Escala) --- */}
+        <div className="tp-section">
+          <label>Transformar</label>
+          <div className="tp-row">
+            <span className="tp-label-icon">Escala</span>
+            <div className="tp-col-grow">
+              <input
+                className="tp-slider"
+                type="range"
+                min={0.1} // No dejar que sea 0
+                max={5}   // 500%
+                step={0.05}
+                value={formState.scale || 1} // El 'scale' viene de 'editingData'
+                onChange={(e) => handleNumChange("scale", e)}
+              />
+            </div>
+            <span className="tp-value-label">
+              {Math.round((formState.scale || 1) * 100)}%
+            </span>
           </div>
         </div>
+        
       </div>
 
-      <footer className="rd-footer">
-        <button className="btn" onClick={onClose}>Cancelar</button>
-        <button
-          className="btn-primary"
-          disabled={!valid}
-          onClick={() =>
-            onCreateText?.({
-              text,
-              fontSize,
-              fontFamily,
-              color,
-              strokeColor,
-              strokeWidth,
-              align,
-              lineHeight,
-              padding,
-              maxWidth,
-            })
-          }
-        >
-          Agregar texto
-        </button>
+      {/* Footer (Botón de Crear) */}
+      <footer className="tp-footer">
+        {!isEditMode && (
+          <button
+            className="tp-btn-primary"
+            onClick={handleSubmit}
+            disabled={!formState.text}
+          >
+            Agregar Texto al 3D
+          </button>
+        )}
+        {isEditMode && (
+           <p className="tp-edit-note">
+             Editando en vivo. Clic en el modelo para deseleccionar.
+           </p>
+        )}
       </footer>
     </aside>
   );

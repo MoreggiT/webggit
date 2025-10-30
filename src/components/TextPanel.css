@@ -1,0 +1,272 @@
+/* src/components/TextPanel.css */
+
+/* Variables (deberían coincidir con tu index.css) */
+:root {
+  --tp-bg: var(--card, #ffffff);
+  --tp-border: var(--border, #e5e7eb);
+  --tp-shadow: var(--shadow, 0 4px 12px rgba(0,0,0,0.08));
+  --tp-text-primary: var(--text-primary, #111827);
+  --tp-text-secondary: var(--text-secondary, #6b7280);
+  --tp-accent: var(--accent, #2563eb);
+  --tp-input-bg: var(--pill-bg, #f3f4f6);
+  --tp-input-border: var(--pill-br, #e5e7eb);
+}
+
+.text-panel-modern {
+  position: fixed;
+  right: 12px;
+  top: 12px;
+  bottom: 12px;
+  width: 320px;
+  background: var(--tp-bg);
+  border: 1px solid var(--tp-border);
+  border-radius: 16px;
+  box-shadow: var(--tp-shadow);
+  z-index: 800;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--tp-text-primary);
+}
+
+/* --- Encabezado --- */
+.tp-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--tp-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(6px);
+}
+.tp-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+.tp-close-btn {
+  background: var(--tp-input-bg);
+  border: 1px solid var(--tp-input-border);
+  color: var(--tp-text-secondary);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.tp-close-btn:hover {
+  background: #e5e7eb;
+  color: var(--tp-text-primary);
+}
+
+/* --- Cuerpo y Secciones --- */
+.tp-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+.tp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tp-section > label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--tp-text-secondary);
+  text-transform: uppercase;
+  margin: 0;
+}
+.tp-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tp-col {
+  flex: 1 1 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tp-col-grow {
+  flex-grow: 1;
+}
+.tp-col label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--tp-text-secondary);
+}
+
+/* --- Controles de Formulario --- */
+.tp-textarea,
+.tp-select,
+.tp-input-num {
+  width: 100%;
+  background: var(--tp-input-bg);
+  border: 1px solid var(--tp-input-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--tp-text-primary);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.tp-textarea:focus,
+.tp-select:focus,
+.tp-input-num:focus {
+  outline: none;
+  border-color: var(--tp-accent);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+.tp-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+.tp-color-picker {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  border: 1px solid var(--tp-input-border);
+}
+.tp-color-picker::-webkit-color-swatch {
+  border-radius: 7px;
+  border: none;
+}
+.tp-color-picker::-moz-color-swatch {
+  border-radius: 7px;
+  border: none;
+}
+
+/* --- Sliders --- */
+.tp-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: var(--tp-input-bg);
+  border-radius: 3px;
+  outline: none;
+  opacity: 0.9;
+  transition: opacity 0.2s;
+}
+.tp-slider:hover {
+  opacity: 1;
+}
+.tp-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--tp-accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--tp-bg);
+  box-shadow: 0 0 2px rgba(0,0,0,0.2);
+}
+.tp-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--tp-accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--tp-bg);
+  box-shadow: 0 0 2px rgba(0,0,0,0.2);
+}
+.tp-value-label {
+  font-size: 12px;
+  color: var(--tp-text-secondary);
+  min-width: 32px;
+  text-align: right;
+}
+.tp-label-icon {
+  font-size: 14px;
+  color: var(--tp-text-primary);
+  font-weight: 500;
+  min-width: 40px;
+}
+
+/* --- Grupo de Botones --- */
+.tp-btn-group {
+  display: flex;
+  width: 100%;
+}
+.tp-btn {
+  flex-grow: 1;
+  background: var(--tp-input-bg);
+  border: 1px solid var(--tp-input-border);
+  color: var(--tp-text-secondary);
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.tp-btn:hover {
+  background: #e5e7eb;
+  color: var(--tp-text-primary);
+}
+.tp-btn.active {
+  background: var(--tp-accent);
+  color: #fff;
+  border-color: var(--tp-accent);
+  z-index: 1;
+}
+.tp-btn:first-child {
+  border-radius: 8px 0 0 8px;
+}
+.tp-btn:last-child {
+  border-radius: 0 8px 8px 0;
+}
+.tp-btn:not(:first-child) {
+  margin-left: -1px;
+}
+
+/* --- Footer --- */
+.tp-footer {
+  padding: 16px;
+  border-top: 1px solid var(--tp-border);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(6px);
+}
+.tp-btn-primary {
+  width: 100%;
+  background: var(--tp-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.tp-btn-primary:hover {
+  background: #1d4ed8;
+}
+.tp-btn-primary:disabled {
+  background: var(--tp-input-bg);
+  color: var(--tp-text-secondary);
+  cursor: not-allowed;
+}
+.tp-edit-note {
+  font-size: 13px;
+  color: var(--tp-text-secondary);
+  text-align: center;
+  margin: 0;
+  padding: 6px 0;
+}
