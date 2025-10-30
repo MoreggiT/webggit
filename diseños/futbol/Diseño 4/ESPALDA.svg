@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="diseño" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150.09 214.25">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #db9e05;
+      }
+
+      .cls-2 {
+        fill: #ba0000;
+      }
+    </style>
+  </defs>
+  <rect id="COLOR_1" data-name="COLOR 1" class="cls-2" x=".01" y=".01" width="150.06" height="216.23"/>
+  <path id="COLOR_2" data-name="COLOR 2" class="cls-1" d="M150.09,23.45c-12.91,13.75-35.39,34.32-68.68,50.26C48.49,89.46,18.72,94.13,0,95.62v54.92c1.74,3.28,16.64,30.23,48.72,35.71,24.01,4.1,48.66-5.37,64.5-24.61,12.29-14.26,24.57-28.53,36.86-42.79V23.45Z"/>
+</svg>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 837 145">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #ff7900;
+      }
+
+      .cls-2 {
+        fill: #0c0c0c;
+        font-family: Tahoma-Bold, Tahoma;
+        font-size: 87.81px;
+        font-weight: 700;
+        isolation: isolate;
+      }
+    </style>
+  </defs>
+  <g id="diseño">
+    <rect id="COLOR_1" data-name="COLOR 1" class="cls-1" width="837" height="145"/>
+  </g>
+  <g id="TITULOS">
+    <text class="cls-2" transform="translate(151.16 -33.61)"><tspan x="0" y="0">CUELLO IZQ</tspan></text>
+  </g>
+</svg>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 565 159">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #0c0c0c;
+        font-family: Tahoma-Bold, Tahoma;
+        font-size: 87.81px;
+        font-weight: 700;
+        isolation: isolate;
+      }
+
+      .cls-2 {
+        fill: #890000;
+      }
+    </style>
+  </defs>
+  <g id="diseño">
+    <rect id="BASE" class="cls-2" width="565" height="159"/>
+  </g>
+  <g id="TITULOS">
+    <text class="cls-1" transform="translate(150.69 -11.61)"><tspan x="0" y="0">TALLE</tspan></text>
+  </g>
+</svg>

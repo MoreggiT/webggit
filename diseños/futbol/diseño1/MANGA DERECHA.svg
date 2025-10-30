@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1490 1259">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #ff7900;
+      }
+
+      .cls-2 {
+        fill: #0c0c0c;
+        font-family: Tahoma-Bold, Tahoma;
+        font-size: 87.81px;
+        font-weight: 700;
+        isolation: isolate;
+      }
+
+      .cls-3 {
+        fill: #890000;
+      }
+    </style>
+  </defs>
+  <g id="diseño">
+    <rect id="BASE" class="cls-3" width="1490" height="1259"/>
+    <path id="COLOR_1" data-name="COLOR 1" class="cls-1" d="M105.78,1259h182.63V-.52H105.78V1259Zm365.27,0h182.63V-.52h-182.63V1259Zm365.27,0h182.63V-.52h-182.63V1259Zm365.27,0h182.63V-.52h-182.63V1259Z"/>
+  </g>
+  <g id="TITULOS">
+    <text class="cls-2" transform="translate(380.06 -18.61)"><tspan x="0" y="0">MANGA DEREHA</tspan></text>
+  </g>
+</svg>

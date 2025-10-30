@@ -1,0 +1,62 @@
+{
+  "moldes": {
+    "futbol": {
+      "files": [
+        "mateando.glb"
+      ]
+    },
+    "Basquet": {
+      "files": [
+        "adiglan b.glb"
+      ]
+    }
+  },
+  "diseños": {
+    "futbol": {
+      "diseño1": [
+        "CUELLO DERECHO.svg",
+        "CUELLO IZQUIERDO.svg",
+        "ESPALDA.svg",
+        "FRENTE.svg",
+        "MANGA DERECHA.svg",
+        "MANGA IZQUIERDA.svg",
+        "SOLAPA.svg",
+        "VIVO IZQUIERDO.svg",
+        "VIVO DERECHO.svg"
+      ],
+      "diseño2": [
+        "CUELLO DERECHO.svg",
+        "CUELLO IZQUIERDO.svg",
+        "ESPALDA.svg",
+        "FRENTE.svg",
+        "MANGA DERECHA.svg",
+        "MANGA IZQUIERDA.svg",
+        "SOLAPA.svg",
+        "VIVO IZQUIERDO.svg",
+        "VIVO DERECHO.svg"
+      ],
+      "diseño 3": [
+        "CUELLO DERECHO.svg",
+        "CUELLO IZQUIERDO.svg",
+        "ESPALDA.svg",
+        "FRENTE.svg",
+        "MANGA DERECHA.svg",
+        "MANGA IZQUIERDA.svg",
+        "SOLAPA.svg",
+        "VIVO IZQUIERDO.svg",
+        "VIVO DERECHO.svg"
+      ],
+      "diseño 4": [
+        "CUELLO DERECHO.svg",
+        "CUELLO IZQUIERDO.svg",
+        "ESPALDA.svg",
+        "FRENTE.svg",
+        "MANGA DERECHA.svg",
+        "MANGA IZQUIERDA.svg",
+        "SOLAPA.svg",
+        "VIVO IZQUIERDO.svg",
+        "VIVO DERECHO.svg"
+      ]
+    }
+  }
+}

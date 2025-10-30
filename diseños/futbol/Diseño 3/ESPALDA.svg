@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2198.8 2201.9">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #ff7900;
+      }
+
+      .cls-2 {
+        fill: #0c0c0c;
+        font-family: Tahoma-Bold, Tahoma;
+        font-size: 87.81px;
+        font-weight: 700;
+        isolation: isolate;
+      }
+
+      .cls-3 {
+        fill: #890000;
+      }
+    </style>
+  </defs>
+  <g id="diseño">
+    <rect id="BASE" class="cls-3" x="-5" width="2203.8" height="2201.9"/>
+    <polygon id="COLOR_1" data-name="COLOR 1" class="cls-1" points="2198.8 1999.3 420.6 -9.3 -5 0 0 239.6 1785.2 2201.9 2198.8 2201.9 2198.8 1999.3"/>
+  </g>
+  <g id="TITULOS">
+    <text class="cls-2" transform="translate(953.96 -7.25)"><tspan x="0" y="0">ESPALDA</tspan></text>
+  </g>
+</svg>

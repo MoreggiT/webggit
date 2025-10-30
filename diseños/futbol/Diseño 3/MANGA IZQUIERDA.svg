@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1488 1259">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #0c0c0c;
+        font-family: Tahoma-Bold, Tahoma;
+        font-size: 87.81px;
+        font-weight: 700;
+        isolation: isolate;
+      }
+
+      .cls-2 {
+        fill: #890000;
+      }
+    </style>
+  </defs>
+  <g id="diseño">
+    <rect id="BASE" class="cls-2" width="1488" height="1259"/>
+  </g>
+  <g id="TITULOS">
+    <text class="cls-1" transform="translate(307.4 -18.61)"><tspan x="0" y="0">MANGA IZQUIERDA</tspan></text>
+  </g>
+</svg>
