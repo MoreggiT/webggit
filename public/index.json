@@ -3,59 +3,53 @@
     "futbol": {
       "files": [
         "mateando.glb"
-      ]
+      ],
+      "mateando.glb": {
+        "thumbnail": {
+          "width": 400,
+          "height": 200,
+          "piezas": [ "FRENTE", "ESPALDA" ],
+          "layout": {
+            "FRENTE": { "x": 0, "y": 0, "width": 200, "height": 200 },
+            "ESPALDA": { "x": 200, "y": 0, "width": 200, "height": 200 }
+          }
+        }
+      }
     },
     "Basquet": {
       "files": [
         "adiglan b.glb"
-      ]
+      ],
+      "adiglan b.glb": {
+         "thumbnail": {
+          "width": 400,
+          "height": 200,
+          "piezas": [ "FRENTE", "ESPALDA" ],
+          "layout": {
+            "FRENTE": { "x": 0, "y": 0, "width": 200, "height": 200 },
+            "ESPALDA": { "x": 200, "y": 0, "width": 200, "height": 200 }
+          }
+        }
+      }
     }
   },
   "diseños": {
     "futbol": {
       "diseño1": [
-        "CUELLO DERECHO.svg",
-        "CUELLO IZQUIERDO.svg",
-        "ESPALDA.svg",
-        "FRENTE.svg",
-        "MANGA DERECHA.svg",
-        "MANGA IZQUIERDA.svg",
-        "SOLAPA.svg",
-        "VIVO IZQUIERDO.svg",
-        "VIVO DERECHO.svg"
+        "CUELLO DERECHO.svg", "CUELLO IZQUIERDO.svg", "ESPALDA.svg", "FRENTE.svg",
+        "MANGA DERECHA.svg", "MANGA IZQUIERDA.svg", "SOLAPA.svg", "VIVO DERECHO.svg", "VIVO IZQUIERDO.svg"
       ],
       "diseño2": [
-        "CUELLO DERECHO.svg",
-        "CUELLO IZQUIERDO.svg",
-        "ESPALDA.svg",
-        "FRENTE.svg",
-        "MANGA DERECHA.svg",
-        "MANGA IZQUIERDA.svg",
-        "SOLAPA.svg",
-        "VIVO IZQUIERDO.svg",
-        "VIVO DERECHO.svg"
+        "CUELLO DERECHO.svg", "CUELLO IZQUIERDO.svg", "ESPALDA.svg", "FRENTE.svg",
+        "MANGA DERECHA.svg", "MANGA IZQUIERDA.svg", "SOLAPA.svg", "VIVO DERECHO.svg", "VIVO IZQUIERDO.svg"
       ],
       "Diseño 3": [
-        "CUELLO DERECHO.svg",
-        "CUELLO IZQUIERDO.svg",
-        "ESPALDA.svg",
-        "FRENTE.svg",
-        "MANGA DERECHA.svg",
-        "MANGA IZQUIERDA.svg",
-        "SOLAPA.svg",
-        "VIVO IZQUIERDO.svg",
-        "VIVO DERECHO.svg"
+        "CUELLO DERECHO.svg", "CUELLO IZQUIERDO.svg", "ESPALDA.svg", "FRENTE.svg",
+        "MANGA DERECHA.svg", "MANGA IZQUIERDA.svg", "SOLAPA.svg", "VIVO DERECHO.svg", "VIVO IZQUIERDO.svg"
       ],
       "Diseño 4": [
-        "CUELLO DERECHO.svg",
-        "CUELLO IZQUIERDO.svg",
-        "ESPALDA.svg",
-        "FRENTE.svg",
-        "MANGA DERECHA.svg",
-        "MANGA IZQUIERDA.svg",
-        "SOLAPA.svg",
-        "VIVO IZQUIERDO.svg",
-        "VIVO DERECHO.svg"
+        "CUELLO DERECHO.svg", "CUELLO IZQUIERDO.svg", "ESPALDA.svg", "FRENTE.svg",
+        "MANGA DERECHA.svg", "MANGA IZQUIERDA.svg", "SOLAPA.svg", "VIVO DERECHO.svg", "VIVO IZQUIERDO.svg"
       ]
     }
   }

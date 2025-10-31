@@ -117,13 +117,34 @@ const currentHexFor = (piece, o) =>
     "#000000"
   ).toUpperCase();
 
-/* ========== botón de thumb ========== */
+/* ========== botón de thumb (con IntersectionObserver) ========== */
 function DesignThumbBtn({ name, img, onClick, ensure, disabled }) {
+  const btnRef = React.useRef(null);
+
+  // Solo generamos la miniatura cuando el botón entra a viewport
   useEffect(() => {
-    ensure?.();
+    if (!btnRef.current || !ensure) return;
+    let observed = true;
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting && observed) {
+            ensure();
+            // si querés solo 1 vez, podés dejar de observar:
+            io.unobserve(e.target);
+            observed = false;
+          }
+        });
+      },
+      { root: null, rootMargin: "200px", threshold: 0.01 } // precarga ~200px antes
+    );
+    io.observe(btnRef.current);
+    return () => io.disconnect();
   }, [ensure]);
+
   return (
     <button
+      ref={btnRef}
       className="design-thumb-btn"
       onClick={onClick}
       disabled={disabled}
@@ -204,9 +225,7 @@ function ColorPopover({ anchorRect, onPick, onClose, palette }) {
   return (
     <div
       ref={ref}
-      className={`color-popover ${
-        pos.side === "left" ? "is-left" : "is-right"
-      }`}
+      className={`color-popover ${pos.side === "left" ? "is-left" : "is-right"}`}
       style={{ left: pos.left, top: pos.top, width: W, height: H }}
       role="dialog"
       aria-label="Selector de color"
@@ -216,9 +235,7 @@ function ColorPopover({ anchorRect, onPick, onClose, palette }) {
         {palette.map((hex) => (
           <button
             key={hex}
-            className={`palette-btn pop-btn ${
-              hex.toLowerCase() === "#ffffff" ? "is-white" : ""
-            }`}
+            className={`palette-btn pop-btn ${hex.toLowerCase() === "#ffffff" ? "is-white" : ""}`}
             title={hex}
             onClick={() => onPick(hex)}
             style={{ background: hex }}
@@ -260,10 +277,44 @@ export default function App() {
   // thumbs
   const [designThumbs, setDesignThumbs] = useState({});
   const generatingThumbsRef = useRef(new Set());
-  const thumbQueueRef = useRef(Promise.resolve());
+  const abortControllersRef = useRef(new Map()); // por diseño
 
+  // Nueva cola con concurrencia controlada
+  const MAX_CONC = 3;
+  const runningRef = useRef(0);
+  const queueRef = useRef([]);
+  const pump = useCallback(() => {
+    while (runningRef.current < MAX_CONC && queueRef.current.length) {
+      const task = queueRef.current.shift();
+      runningRef.current++;
+      const ric = window.requestIdleCallback || ((cb) => setTimeout(cb, 0));
+      ric(
+        async () => {
+          try {
+            await task();
+          } finally {
+            runningRef.current--;
+            pump();
+          }
+        },
+        { timeout: 120 }
+      );
+    }
+  }, []);
+  const scheduleThumb = useCallback(
+    (task) => {
+      queueRef.current.push(task);
+      pump();
+    },
+    [pump]
+  );
+
+  // Tamaños y modo de rasterizado
   const TEX_SIZE = 4096;
   const FIT_MODE = "fitHeight";
+  const THUMB_TEX = 1024; // ↓ mucho más liviano para thumbs
+  const THUMB_BOC_W = 480;
+  const THUMB_BOC_H = 360;
 
   const viewerApiRef = useRef(null);
   const imageInputRef = useRef(null);
@@ -344,20 +395,21 @@ export default function App() {
       try {
         const r = await fetch("/index.json");
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        
+
         // MODIFICACIÓN: Leer como texto y validar el JSON para manejar mejor el error HTML
         const text = await r.text();
         let json;
         try {
-            json = JSON.parse(text);
+          json = JSON.parse(text);
         } catch (e) {
-            // Si el error es de sintaxis y el contenido parece ser HTML, lo identificamos
-            if (text.trim().startsWith("<!DOCTYPE html>")) {
-                throw new Error("El servidor devolvió una página HTML en lugar de /index.json. Esto es un error de configuración del servidor o un archivo faltante (404/fallback).");
-            }
-            throw e; // Relanza el error de sintaxis original si no es HTML
+          if (text.trim().startsWith("<!DOCTYPE html>")) {
+            throw new Error(
+              "El servidor devolvió una página HTML en lugar de /index.json. Esto es un error de configuración del servidor o un archivo faltante (404/fallback)."
+            );
+          }
+          throw e;
         }
-        
+
         const idx = { moldes: json.moldes || {}, diseños: json.diseños || {} };
         setIndexData(idx);
         const cats = Object.keys(idx.moldes);
@@ -367,7 +419,9 @@ export default function App() {
         );
       } catch (err) {
         console.error("Error leyendo /index.json:", err);
-        setStatus(`Error al cargar índice: ${err.message || "Verifica tu archivo y configuración de servidor."}`);
+        setStatus(
+          `Error al cargar índice: ${err.message || "Verifica tu archivo y configuración de servidor."}`
+        );
       }
     })();
   }, []);
@@ -382,6 +436,14 @@ export default function App() {
       setPalettePopover(null);
       setEditMode("global");
       setStatus(`Categoría: ${cat}`);
+
+      // cancelar tareas de thumbs en curso
+      for (const [k, ctrl] of abortControllersRef.current.entries()) {
+        try {
+          ctrl.abort();
+        } catch {}
+        abortControllersRef.current.delete(k);
+      }
 
       const m = indexData.moldes?.[cat];
       const d = indexData.diseños?.[cat];
@@ -418,6 +480,7 @@ export default function App() {
   }, []);
 
   // Modelo listo
+  const [modelKey, setModelKey] = useState(""); // clave para cache de thumbs
   const onModelReady = useCallback(
     (meshesFlat) => {
       const map = new Map();
@@ -442,6 +505,10 @@ export default function App() {
       setHasModel(true);
       historyRef.current = [];
       pushSnapshot();
+
+      // modelKey: usa las claves de piezas para diferenciar thumbs por molde
+      const key = Array.from(map.keys()).sort().join("|");
+      setModelKey(key);
     },
     [pushSnapshot]
   );
@@ -478,17 +545,48 @@ export default function App() {
     return bestScore > 0 ? best : null;
   }
 
+  /* ---------- Cache simple de thumbs ---------- */
+  const THUMB_CACHE_NS = "thumb:v1:"; // bump si cambian SVGs/algoritmo
+  const getThumbCacheKey = (cat, design, modelK) =>
+    `${THUMB_CACHE_NS}${cat}::${design}::${modelK}`;
+  const readThumb = (cat, design, modelK) => {
+    try {
+      return localStorage.getItem(getThumbCacheKey(cat, design, modelK));
+    } catch {}
+    return null;
+  };
+  const writeThumb = (cat, design, modelK, dataUrl) => {
+    try {
+      localStorage.setItem(getThumbCacheKey(cat, design, modelK), dataUrl);
+    } catch {}
+  };
+
   /* ---------- miniaturas de diseños ---------- */
   const ensureDesignThumb = useCallback(
     (designName) => {
       if (!hasModel || !selectedCat || !designName) return;
-      if (designThumbs[designName]) return;
+      if (designThumbs[designName]) return; // ya está
       const inFlight = generatingThumbsRef.current;
       if (inFlight.has(designName)) return;
 
+      // cache hit?
+      const cached = modelKey ? readThumb(selectedCat, designName, modelKey) : null;
+      if (cached) {
+        setDesignThumbs((prev) => ({ ...prev, [designName]: cached }));
+        return;
+      }
+
+      // marcar en vuelo
       inFlight.add(designName);
-      thumbQueueRef.current = thumbQueueRef.current.then(async () => {
+
+      // controlador para poder abortar si se cambia de categoría/modelo
+      const ac = new AbortController();
+      abortControllersRef.current.set(designName, ac);
+
+      // encolar tarea con concurrencia controlada
+      scheduleThumb(async () => {
         try {
+          // si ya llegó de otro lado, salir
           if (designThumbs[designName]) return;
 
           const files = indexData.diseños?.[selectedCat]?.[designName];
@@ -500,12 +598,16 @@ export default function App() {
           const touched = [];
           const perFileCanvases = [];
 
+          // (opción fast) usar solo primer SVG para un thumb instantáneo
+          // luego, en idle, podrías regenerar con todos. Aquí ya hacemos todos en 1024.
+
           for (const file of files) {
+            if (ac.signal.aborted) return;
             const svgUrl = `/diseños/${encodeURIComponent(
               selectedCat
             )}/${encodeURIComponent(designName)}/${encodeURIComponent(file)}`;
             try {
-              const r = await fetch(svgUrl);
+              const r = await fetch(svgUrl, { signal: ac.signal });
               if (!r.ok) throw new Error(`HTTP ${r.status}`);
               const svgText = await r.text();
               const fileBase = baseName(file);
@@ -514,40 +616,45 @@ export default function App() {
               const piece = pieces.get(targetKey);
               if (!piece) continue;
 
+              // rasterizado de baja para thumbs
               const canvas = await rasterizeSvgToCanvasSafe(
                 svgText,
-                TEX_SIZE,
-                TEX_SIZE,
+                THUMB_TEX,
+                THUMB_TEX,
                 FIT_MODE
               );
               if (!canvas) continue;
 
               perFileCanvases.push({ piece, canvas });
             } catch (err) {
-              console.warn(
-                "No se pudo cargar/rasterizar SVG (thumb):",
-                svgUrl,
-                err.message
-              );
+              if (ac.signal.aborted) return;
+              console.warn("No se pudo cargar/rasterizar SVG (thumb):", svgUrl, err.message);
             }
           }
 
+          // Aplicar overlays de baja, suspender render para no jankear
+          try {
+            await viewerApiRef.current?.suspendRender?.(true);
+          } catch {}
           for (const { piece, canvas } of perFileCanvases) {
             for (const m of piece.meshes) {
               const hadOverlay = !!m.overlayMat;
-              const prevImage = hadOverlay ? m.overlayMat.map?.image || null : null;
+              const prevImage = hadOverlay ? m.overlayMat?.map?.image || null : null;
               viewerApiRef.current?.applyOverlayTexture(m, canvas, true);
               touched.push({ m, hadOverlay, prevImage });
             }
           }
 
+          if (ac.signal.aborted) return;
+
           const boc = await viewerApiRef.current?.getBocetoImages?.({
-            width: 720,
-            height: 540,
-            quality: 0.9,
+            width: THUMB_BOC_W,
+            height: THUMB_BOC_H,
+            quality: 0.85,
           });
           const thumb = boc?.front || null;
 
+          // revertir overlays
           for (const rec of touched) {
             const m = rec.m;
             if (rec.hadOverlay) {
@@ -566,17 +673,25 @@ export default function App() {
               m.overlayMesh = null;
             }
           }
+          try {
+            await viewerApiRef.current?.suspendRender?.(false);
+          } catch {}
+
+          if (ac.signal.aborted) return;
 
           setDesignThumbs((prev) => ({ ...prev, [designName]: thumb || "__ERR__" }));
+          if (thumb && modelKey) writeThumb(selectedCat, designName, modelKey, thumb);
         } catch (err) {
+          if (ac.signal.aborted) return;
           console.error("Error generando miniatura:", designName, err);
           setDesignThumbs((prev) => ({ ...prev, [designName]: "__ERR__" }));
         } finally {
           inFlight.delete(designName);
+          abortControllersRef.current.delete(designName);
         }
       });
     },
-    [hasModel, selectedCat, indexData, pieces, designThumbs]
+    [hasModel, selectedCat, indexData, pieces, designThumbs, modelKey, scheduleThumb]
   );
 
   // Aplicar diseño (carga SVGs)
@@ -768,7 +883,7 @@ export default function App() {
 
   /* ===================== PANEL DE TEXTO (DERECHA) ===================== */
   const [textPanelOpen, setTextPanelOpen] = useState(false);
-  
+
   // 1. NUEVO: Estado para el texto que se está editando
   const [editingText, setEditingText] = useState(null); // null = modo "Crear"
 
@@ -789,7 +904,6 @@ export default function App() {
     opacity: 1,
   });
 
-
   // Función para CREAR un texto nuevo
   const handleAddText = async (textConfig) => {
     if (!hasModel) {
@@ -803,9 +917,9 @@ export default function App() {
     }
     await api.addTextOverlay({ ...textConfig });
     setStatus("Texto listo: hacé clic sobre el modelo para colocarlo. Doble clic para editar.");
-    
+
     setTextPanelOpen(false); // Cerrar panel
-    setEditingText(null);    // Limpiar estado de edición
+    setEditingText(null); // Limpiar estado de edición
   };
 
   // 2. NUEVO: Función para ACTUALIZAR un texto existente
@@ -813,17 +927,17 @@ export default function App() {
     if (!hasModel || !editingText) return;
     const api = viewerApiRef.current;
     if (!api?.updateTextOverlay) return;
-    
+
     // Llamamos a la nueva función del viewer
     await api.updateTextOverlay({ ...textConfig });
-    
+
     // Actualizamos el estado de edición (por si el usuario sigue cambiando)
-    setEditingText(textConfig); 
-    
+    setEditingText(textConfig);
+
     setStatus("Texto actualizado.");
     // No cerramos el panel
   };
-  
+
   // 3. NUEVO: Función para recibir la selección desde Viewer3D
   const handleTextSelected = (textData) => {
     setEditingText(textData); // null si se deselecciona, o data si se selecciona
@@ -836,7 +950,7 @@ export default function App() {
   const handleToggleTextPanel = () => {
     const isOpening = !textPanelOpen;
     setTextPanelOpen(isOpening);
-    
+
     if (isOpening) {
       // Si se abre manualmente, forzamos modo "Crear"
       setEditingText(null);
@@ -847,14 +961,13 @@ export default function App() {
       viewerApiRef.current?.clearSelectionAll();
     }
   };
-  
+
   // 5. NUEVO: Lógica para el botón "Cerrar" del panel
   const handleCloseTextPanel = () => {
     setTextPanelOpen(false);
     setEditingText(null);
     viewerApiRef.current?.clearSelectionAll();
   };
-
 
   /* ============================ RENDER ============================ */
   return (
@@ -1041,10 +1154,7 @@ export default function App() {
                               title={`Color actual: ${currentHex}`}
                             >
                               <span className="row-left">
-                                <span
-                                  className="swatch-lg"
-                                  style={{ background: currentHex }}
-                                />
+                                <span className="swatch-lg" style={{ background: currentHex }} />
                                 <span className="layer-name">{o.objectName}</span>
                               </span>
                               <span className="row-hex">{currentHex}</span>
@@ -1071,14 +1181,7 @@ export default function App() {
             aria-label="Descargar boceto"
             title="Descargar boceto"
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
@@ -1092,14 +1195,7 @@ export default function App() {
             aria-label="Cargar imagen"
             title="Cargar imagen"
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="3" width="14" height="14" rx="2" ry="2" />
               <circle cx="8.5" cy="8.5" r="1.5" />
               <path d="M3 14l4-4 3 3 2-2 5 5" />
@@ -1124,34 +1220,20 @@ export default function App() {
             aria-label="Volver atrás"
             title="Volver atrás"
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="19" y1="12" x2="5" y2="12" />
               <polyline points="12 19 5 12 12 5" />
             </svg>
           </button>
 
-          {/* 6. MODIFICADO: onClick ahora usa la nueva función */}
+          {/* Texto (panel derecho) */}
           <button
             className="icon-btn"
-            onClick={handleToggleTextPanel} 
+            onClick={handleToggleTextPanel}
             aria-label="Texto (panel derecho)"
             title="Texto (panel derecho)"
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M4 7V5h16v2" />
               <path d="M9 5v14" />
               <path d="M15 5v14" />
@@ -1166,7 +1248,7 @@ export default function App() {
           onProgress={onProgress}
           onClearAll={onClear}
           onOverlaysChanged={() => pushSnapshot()}
-          onTextSelected={handleTextSelected} // 7. NUEVO: Pasar el handler al viewer
+          onTextSelected={handleTextSelected} // selección de texto
           log={console.log}
         />
 
@@ -1251,7 +1333,7 @@ export default function App() {
         />
       )}
 
-      {/* 8. MODIFICADO: Pasar los nuevos props al TextPanel */}
+      {/* Panel de Texto */}
       <TextPanel
         open={textPanelOpen}
         onClose={handleCloseTextPanel}

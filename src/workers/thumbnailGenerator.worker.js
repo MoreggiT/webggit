@@ -1,133 +1,138 @@
 /* eslint-disable no-restricted-globals */
 
 /**
- * /src/workers/thumbnailGenerator.worker.js
- * * Este script se ejecuta en un hilo separado (Web Worker) para no bloquear la interfaz.
- * Su única tarea es recibir los datos de un diseño y un molde, construir una miniatura
- * ensamblando las piezas SVG en un canvas, y devolver la imagen final.
- */
+ * /src/workers/thumbnailGenerator.worker.js
+ * * Este script se ejecuta en un hilo separado (Web Worker) para no bloquear la interfaz.
+ * Su única tarea es recibir los datos de un diseño y un molde, construir una miniatura
+ * ensamblando las piezas SVG en un canvas, y devolver la imagen final.
+ */
 
 // --- Funciones de Utilidad (adaptadas para el entorno del Worker) ---
 
 /**
- * Clona un SVG y le aplica nuevos colores.
- * @param {string} svgText - El contenido XML del SVG.
- * @param {Array} colors - Array de colores a reemplazar, ej: [{ from: '#000', to: '#FFF' }]
- * @returns {string} - El nuevo SVG como string con los colores aplicados.
- */
+ * Clona un SVG y le aplica nuevos colores.
+ * @param {string} svgText - El contenido XML del SVG.
+ * @param {Array} colors - Array de colores a reemplazar, ej: [{ from: '#000', to: '#FFF' }]
+ * @returns {string} - El nuevo SVG como string con los colores aplicados.
+ */
 const applySvgColors = (svgText, colors) => {
-  // En un worker, no tenemos acceso al DOM, pero sí a DOMParser.
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(svgText, "image/svg+xml");
-  const svg = doc.documentElement;
+  // En un worker, no tenemos acceso al DOM, pero sí a DOMParser.
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgText, "image/svg+xml");
+  const svg = doc.documentElement;
 
-  if (colors && colors.length > 0) {
-    colors.forEach(color => {
-      const { from, to } = color;
-      const paths = svg.querySelectorAll(`[fill="${from}"]`);
-      paths.forEach(path => {
-        path.setAttribute('fill', to);
-      });
-    });
-  }
+  if (colors && colors.length > 0) {
+    colors.forEach(color => {
+      const { from, to } = color;
+      const paths = svg.querySelectorAll(`[fill="${from}"]`);
+      paths.forEach(path => {
+        path.setAttribute('fill', to);
+      });
+    });
+  }
 
-  const serializer = new XMLSerializer();
-  return serializer.serializeToString(svg);
+  const serializer = new XMLSerializer();
+  return serializer.serializeToString(svg);
 };
 
 /**
- * Convierte un string SVG en un ImageBitmap, que es una forma eficiente de manejar imágenes en workers.
- * @param {string} svgText - El contenido XML del SVG.
- * @returns {Promise<ImageBitmap>}
- */
+ * Convierte un string SVG en un ImageBitmap, que es una forma eficiente de manejar imágenes en workers.
+ * @param {string} svgText - El contenido XML del SVG.
+ * @returns {Promise<ImageBitmap>}
+ */
 const rasterizeSvg = (svgText) => {
-  return new Promise((resolve, reject) => {
-    const blob = new Blob([svgText], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    
-    fetch(url)
-      .then(response => response.blob())
-      .then(blob => createImageBitmap(blob))
-      .then(bitmap => {
-        URL.revokeObjectURL(url);
-        resolve(bitmap);
-      })
-      .catch(err => {
-        URL.revokeObjectURL(url);
-        reject(err);
-      });
-  });
+  return new Promise((resolve, reject) => {
+    const blob = new Blob([svgText], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    
+    fetch(url)
+      .then(response => response.blob())
+      .then(blob => createImageBitmap(blob))
+      .then(bitmap => {
+        URL.revokeObjectURL(url);
+        resolve(bitmap);
+      })
+      .catch(err => {
+        URL.revokeObjectURL(url);
+        reject(err);
+      });
+  });
+};
+
+// ** FUNCIÓN AGREGADA para normalizar nombres igual que en App.js **
+const baseName = (s) => {
+    const stripped = String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return stripped
+        .trim()
+        .replace(/\.[a-z0-9]+$/i, "")
+        .replace(/[\s-]+/g, "_")
+        .replace(/_\d+$/, "")
+        .toUpperCase();
 };
 
 // --- Lógica Principal del Worker ---
 
 /**
- * Escucha los mensajes provenientes del hilo principal (App.js).
- */
+ * Escucha los mensajes provenientes del hilo principal (App.js).
+ */
 self.onmessage = async (event) => {
-  const { designName, category, molde, colors, cacheKey } = event.data;
+  // ** CORRECCIÓN: Leemos la nueva propiedad 'files' **
+  const { designName, category, molde, files, colors, cacheKey } = event.data;
 
-  // Si falta información esencial del molde, no podemos continuar.
-  if (!molde || !molde.piezas || !molde.layout) {
-    self.postMessage({ 
-      success: false, 
-      error: `La información del 'thumbnail' para el molde es inválida o no existe en index.json.`,
-      cacheKey 
-    });
-    return;
-  }
+  if (!molde || !molde.layout || !Array.isArray(files) || files.length === 0) {
+    self.postMessage({ 
+      success: false, 
+      error: `La información para generar la miniatura es inválida. Molde o archivos no encontrados.`,
+      cacheKey 
+    });
+    return;
+  }
 
-  const { piezas, width, height, layout } = molde;
+  const { width, height, layout } = molde;
+  // ** Usamos los nombres de archivo de `files` para saber qué piezas del layout usar **
+  const piezaNames = files.map(file => baseName(file));
 
-  try {
-    // 1. Preparamos las URLs para todas las piezas SVG que necesitamos.
-    const fetchPromises = piezas.map(piezaName => {
-      // Usamos `baseName` para normalizar el nombre de la pieza, igual que en App.js
-      const fileBase = piezaName.toUpperCase().replace(/[\s-]+/g, "_");
-      const svgUrl = `/diseños/${encodeURIComponent(category)}/${encodeURIComponent(designName)}/${encodeURIComponent(fileBase)}.svg`;
-      return fetch(svgUrl).then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status} for ${svgUrl}`);
-        return res.text();
-      });
-    });
+  try {
+    // 1. Preparamos las URLs para todas las piezas SVG que necesitamos, usando la lista 'files'
+    const fetchPromises = files.map(fileName => {
+      const svgUrl = `/diseños/${encodeURIComponent(category)}/${encodeURIComponent(designName)}/${encodeURIComponent(fileName)}`;
+      return fetch(svgUrl).then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status} for ${svgUrl}`);
+        return res.text();
+      });
+    });
 
-    // 2. Cargamos todos los SVGs en paralelo.
-    const svgTexts = await Promise.all(fetchPromises);
+    const svgTexts = await Promise.all(fetchPromises);
 
-    // 3. Aplicamos colores (si los hay) y rasterizamos cada pieza, también en paralelo.
-    const rasterizePromises = svgTexts.map(svgText => {
-      const coloredSvg = applySvgColors(svgText, colors);
-      return rasterizeSvg(coloredSvg);
-    });
-    const imageBitmaps = await Promise.all(rasterizePromises);
+    const rasterizePromises = svgTexts.map(svgText => {
+      const coloredSvg = applySvgColors(svgText, colors);
+      return rasterizeSvg(coloredSvg);
+    });
+    const imageBitmaps = await Promise.all(rasterizePromises);
 
-    // 4. Creamos un canvas fuera de pantalla (OffscreenCanvas) para ensamblar la miniatura.
-    const canvas = new OffscreenCanvas(width, height);
-    const ctx = canvas.getContext('2d');
+    const canvas = new OffscreenCanvas(width, height);
+    const ctx = canvas.getContext('2d');
 
-    // 5. Dibujamos cada pieza en el canvas según su layout.
-    imageBitmaps.forEach((bitmap, index) => {
-      const piezaName = piezas[index];
-      const piezaLayout = layout[piezaName];
+    // 5. Dibujamos cada pieza en el canvas según su layout.
+    imageBitmaps.forEach((bitmap, index) => {
+      // ** Usamos los nombres de pieza que calculamos a partir de los archivos **
+      const piezaName = piezaNames[index];
+      const piezaLayout = layout[piezaName];
 
-      if (piezaLayout) {
-        // Usamos las coordenadas y dimensiones del layout definido en index.json
-        ctx.drawImage(bitmap, piezaLayout.x, piezaLayout.y, piezaLayout.width, piezaLayout.height);
-      } else {
-        // Si una pieza no tiene layout, la omitimos para evitar errores.
-        console.warn(`No se encontró layout para la pieza: ${piezaName}`);
-      }
-      bitmap.close(); // Liberamos la memoria del bitmap una vez dibujado.
-    });
+      if (piezaLayout) {
+        ctx.drawImage(bitmap, piezaLayout.x, piezaLayout.y, piezaLayout.width, piezaLayout.height);
+      } else {
+        console.warn(`No se encontró layout para la pieza: ${piezaName}`);
+      }
+      bitmap.close();
+    });
 
-    // 6. Convertimos el canvas final a un Blob (mucho más eficiente que DataURL).
-    const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.9 });
+    const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.9 });
 
-    // 7. Enviamos el resultado (el Blob y el cacheKey) de vuelta al hilo principal.
-    self.postMessage({ success: true, blob, cacheKey });
+    self.postMessage({ success: true, blob, cacheKey });
 
-  } catch (error) {
-    console.error('Error en Thumbnail Worker:', error);
-    self.postMessage({ success: false, error: error.message, cacheKey });
-  }
+  } catch (error) {
+    console.error('Error en Thumbnail Worker:', error);
+    self.postMessage({ success: false, error: error.message, cacheKey });
+  }
 };
