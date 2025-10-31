@@ -1,14 +1,21 @@
 /* src/components/modelgallery.css */
 
-/* Backdrop transparente: deja el 3D interactivo fuera del modal */
+/* Backdrop transparente: deja el 3D interactivo fuera del modal (passthrough) */
 .mg-backdrop{
   position: fixed;
   inset: 0;
   background: transparent;
-  z-index: 30;                         /* > rueda (mw-root ~5) */
+  z-index: 60;                        /* por encima de top-controls y rueda */
   display: flex;
   align-items: flex-end;               /* anclado abajo (área de slots) */
   justify-content: center;             /* ⬅️ centrado horizontal */
+  pointer-events: none;                /* ⬅️ PASSTHROUGH por defecto */
+}
+
+/* Opcional: modo “bloqueante” (clic fuera = cerrar).
+   Usá <div class="mg-backdrop block"> si querés capturar clicks fuera. */
+.mg-backdrop.block{
+  background: rgba(15,23,42,0.35);
   pointer-events: auto;
 }
 
@@ -27,15 +34,17 @@
   box-shadow:
     0 28px 60px rgba(15,23,42,.18),
     0 6px 22px rgba(15,23,42,.10);
-  padding: 16px 16px 20px;
-  overflow: hidden;
+  padding: 0 0 16px;                  /* header sticky controla su propio padding */
+  overflow: clip;                      /* ⬅️ evita que el contenido pase por encima del header */
 
   /* origen X paramétrico (por si querés alinear con un slot concreto) */
   --mg-anchor-x: 50%;
   transform-origin: var(--mg-anchor-x) 100%;
 
   animation: mg-pop .28s cubic-bezier(.2,.8,.2,1);
+  pointer-events: auto;                /* el modal sí recibe eventos */
 }
+
 @keyframes mg-pop{
   from{
     opacity: 0;
@@ -47,35 +56,54 @@
   }
 }
 
+/* Header sticky: queda visible y no lo pisan los thumbs al scrollear */
 .mg-header{
-  display:flex; align-items:center; justify-content:space-between;
-  padding: 0 4px 10px 4px;
+  position: sticky;
+  top: 0;
+  z-index: 2;                         /* por encima del grid interno */
+  display:flex; 
+  align-items:center; 
+  justify-content:space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e5e7eb;
 }
+
 .mg-title{
   font-weight: 700;
   color: #111827;
+  font-size: 15px;
+  letter-spacing: .2px;
 }
+
 .mg-close{
   width: 28px; height: 28px;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
   background: #fff;
   cursor: pointer;
+  line-height: 1;
 }
+.mg-close:hover{ background: #f1f5f9; }
 
+/* Grid de tarjetas */
 .mg-grid{
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 18px;
   overflow: auto;
-  padding: 4px;
-  max-height: calc(60vh - 56px);
-}
-.mg-empty{
-  color:#6b7280; padding: 16px;
+  padding: 16px;
+  max-height: calc(60vh - 58px); /* resta la altura del header sticky */
+  overscroll-behavior: contain;
 }
 
-/* Asegurar que sólo el modal capture eventos */
+.mg-empty{
+  color:#6b7280; 
+  padding: 16px;
+}
+
+/* Asegurar que sólo el modal capture eventos (el backdrop por defecto es passthrough) */
 .mg-modal, .mg-grid { pointer-events:auto; }
 
 /* Responsivo */
@@ -87,5 +115,6 @@
   .mg-grid{
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 14px;
+    padding: 12px;
   }
 }

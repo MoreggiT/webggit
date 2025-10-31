@@ -9,9 +9,9 @@
 .mw-root{
   position: absolute;
   left: 0; right: 0; bottom: 0;
-  height: 300px;                 /* valor inicial; luego se sobreescribe inline */
+  height: 300px;              /* valor inicial; luego se sobreescribe inline */
   transition: height var(--mw-anim) ease;
-  pointer-events: none;          /* re-habilitamos en hijos donde haga falta */
+  pointer-events: none;       /* re-habilitamos en hijos donde haga falta */
   user-select: none;
   z-index: 5;
 }
@@ -92,14 +92,24 @@
 }
 
 /* ---------------- Animación grupo de slots ---------------- */
-/* El grupo se anima con estilos inline; este bloque define el estado base
-   (por si se renderiza sin estilos inline en un SSR/flash). */
 .mw-slots{
   transform-origin: 50% 100%;
   transition: transform var(--mw-anim) ease, opacity var(--mw-anim) ease;
 }
 
-/* Responsivo (opcional) */
-@media (max-width: 920px){
-  .mw-root{ height: 280px; }
+/* Responsivo */
+@media (max-width: 780px) {
+  .mw-stage {
+    transform: translateX(-50%) scale(0.85);
+    transform-origin: bottom center;
+    bottom: -25px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mw-stage {
+    transform: translateX(-50%) scale(0.7);
+    transform-origin: bottom center;
+    bottom: -50px;
+  }
 }
