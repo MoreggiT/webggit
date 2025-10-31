@@ -8,7 +8,9 @@ import "./index.css";
 
 import MoldWheel from "./components/MoldWheel";
 import ModelGallery from "./components/ModelGallery";
-import TextPanel from "./components/TextPanel"; // <-- Importado
+import TextPanel from "./components/TextPanel";
+import BottomNav from "./components/BottomNav"; // <-- NUEVO: Barra de navegación móvil
+import { useMediaQuery } from "./hooks/useMediaQuery"; // <-- NUEVO: Hook para detectar tamaño de pantalla
 
 /* ========== helpers de nombres ========== */
 const stripAccents = (s) =>
@@ -121,7 +123,6 @@ const currentHexFor = (piece, o) =>
 function DesignThumbBtn({ name, img, onClick, ensure, disabled }) {
   const btnRef = React.useRef(null);
 
-  // Solo generamos la miniatura cuando el botón entra a viewport
   useEffect(() => {
     if (!btnRef.current || !ensure) return;
     let observed = true;
@@ -130,13 +131,12 @@ function DesignThumbBtn({ name, img, onClick, ensure, disabled }) {
         entries.forEach((e) => {
           if (e.isIntersecting && observed) {
             ensure();
-            // si querés solo 1 vez, podés dejar de observar:
             io.unobserve(e.target);
             observed = false;
           }
         });
       },
-      { root: null, rootMargin: "200px", threshold: 0.01 } // precarga ~200px antes
+      { root: null, rootMargin: "200px", threshold: 0.01 }
     );
     io.observe(btnRef.current);
     return () => io.disconnect();
@@ -219,7 +219,7 @@ function ColorPopover({ anchorRect, onPick, onClose, palette }) {
     arrowTop = Math.max(10, Math.min(arrowTop, H - 22));
 
     setPos({ left, top, side, arrowTop });
-  }, [anchorRect]);
+  }, [anchorRect, W, H]);
 
   if (!anchorRect) return null;
   return (
@@ -249,7 +249,7 @@ function ColorPopover({ anchorRect, onPick, onClose, palette }) {
 /* ================================================================== */
 
 export default function App() {
-  const [status, setStatus] = useState("Elegí un molde en la rueda ↓");
+  const [status, setStatus] = useState("Elegí un molde ↓");
   const [progress, setProgress] = useState(0);
   const [hasModel, setHasModel] = useState(false);
 
@@ -268,18 +268,17 @@ export default function App() {
   const [pieces, setPieces] = useState(new Map());
   const [selectedKey, setSelectedKey] = useState(null);
 
-  // Modo de edición: "global" (todas las piezas) o "per-piece"
-  const [editMode, setEditMode] = useState("global"); // default: general
-
-  // Popover: { mode, pieceKey?, objectId?, layerName?, refs?, anchorRect }
+  const [editMode, setEditMode] = useState("global");
   const [palettePopover, setPalettePopover] = useState(null);
 
-  // thumbs
   const [designThumbs, setDesignThumbs] = useState({});
   const generatingThumbsRef = useRef(new Set());
-  const abortControllersRef = useRef(new Map()); // por diseño
+  const abortControllersRef = useRef(new Map());
 
-  // Nueva cola con concurrencia controlada
+  // NUEVO: Estados para el layout móvil
+  const isMobile = useMediaQuery('(max-width: 780px)');
+  const [mobilePanel, setMobilePanel] = useState(null);
+
   const MAX_CONC = 3;
   const runningRef = useRef(0);
   const queueRef = useRef([]);
@@ -309,17 +308,15 @@ export default function App() {
     [pump]
   );
 
-  // Tamaños y modo de rasterizado
   const TEX_SIZE = 4096;
   const FIT_MODE = "fitHeight";
-  const THUMB_TEX = 1024; // ↓ mucho más liviano para thumbs
+  const THUMB_TEX = 1024;
   const THUMB_BOC_W = 480;
   const THUMB_BOC_H = 360;
 
   const viewerApiRef = useRef(null);
   const imageInputRef = useRef(null);
 
-  // ====== UNDO ======
   const historyRef = useRef([]);
   const takeSnapshot = useCallback(() => {
     const p = Array.from(pieces.entries()).map(([k, v]) => ({
@@ -374,9 +371,8 @@ export default function App() {
     stack.pop();
     const prev = stack[stack.length - 1];
     await restoreSnapshot(prev);
-  }, []);
+  }, [restoreSnapshot]);
 
-  // ===== CSS fallback =====
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty(
@@ -389,14 +385,11 @@ export default function App() {
     );
   }, []);
 
-  // ===== cargar índice =====
   useEffect(() => {
     (async () => {
       try {
         const r = await fetch("/index.json");
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-
-        // MODIFICACIÓN: Leer como texto y validar el JSON para manejar mejor el error HTML
         const text = await r.text();
         let json;
         try {
@@ -409,13 +402,12 @@ export default function App() {
           }
           throw e;
         }
-
         const idx = { moldes: json.moldes || {}, diseños: json.diseños || {} };
         setIndexData(idx);
         const cats = Object.keys(idx.moldes);
         setCatList(cats);
         setStatus(
-          cats.length ? "Elegí un molde en la rueda ↓" : "No hay categorías en index.json"
+          cats.length ? "Elegí un molde ↓" : "No hay categorías en index.json"
         );
       } catch (err) {
         console.error("Error leyendo /index.json:", err);
@@ -437,7 +429,6 @@ export default function App() {
       setEditMode("global");
       setStatus(`Categoría: ${cat}`);
 
-      // cancelar tareas de thumbs en curso
       for (const [k, ctrl] of abortControllersRef.current.entries()) {
         try {
           ctrl.abort();
@@ -458,6 +449,7 @@ export default function App() {
 
   const handleLoadGlbFromGallery = useCallback(async (modelUrl, fileName) => {
     setGalleryOpen(false);
+    setMobilePanel(null); // Cerrar panel móvil al seleccionar
     setProgress(0);
     setStatus(`Cargando ${fileName}…`);
     viewerApiRef.current?.loadModelFromUrl(modelUrl, {
@@ -479,8 +471,7 @@ export default function App() {
     });
   }, []);
 
-  // Modelo listo
-  const [modelKey, setModelKey] = useState(""); // clave para cache de thumbs
+  const [modelKey, setModelKey] = useState("");
   const onModelReady = useCallback(
     (meshesFlat) => {
       const map = new Map();
@@ -505,8 +496,6 @@ export default function App() {
       setHasModel(true);
       historyRef.current = [];
       pushSnapshot();
-
-      // modelKey: usa las claves de piezas para diferenciar thumbs por molde
       const key = Array.from(map.keys()).sort().join("|");
       setModelKey(key);
     },
@@ -517,7 +506,7 @@ export default function App() {
   const onClear = useCallback(() => {
     setPieces(new Map());
     setSelectedKey(null);
-    setStatus("Elegí un molde en la rueda ↓");
+    setStatus("Elegí un molde ↓");
     setProgress(0);
     setHasModel(false);
     setPreviewImages(null);
@@ -527,7 +516,6 @@ export default function App() {
     historyRef.current = [];
   }, []);
 
-  /* ---------- localizar pieza por archivo ---------- */
   function findPieceKeyForFile(piecesMap, fileBase) {
     if (piecesMap.has(fileBase)) return fileBase;
     const tokens = fileBase.split("_").filter(Boolean);
@@ -545,8 +533,7 @@ export default function App() {
     return bestScore > 0 ? best : null;
   }
 
-  /* ---------- Cache simple de thumbs ---------- */
-  const THUMB_CACHE_NS = "thumb:v1:"; // bump si cambian SVGs/algoritmo
+  const THUMB_CACHE_NS = "thumb:v1:";
   const getThumbCacheKey = (cat, design, modelK) =>
     `${THUMB_CACHE_NS}${cat}::${design}::${modelK}`;
   const readThumb = (cat, design, modelK) => {
@@ -561,32 +548,25 @@ export default function App() {
     } catch {}
   };
 
-  /* ---------- miniaturas de diseños ---------- */
   const ensureDesignThumb = useCallback(
     (designName) => {
       if (!hasModel || !selectedCat || !designName) return;
-      if (designThumbs[designName]) return; // ya está
+      if (designThumbs[designName]) return;
       const inFlight = generatingThumbsRef.current;
       if (inFlight.has(designName)) return;
 
-      // cache hit?
       const cached = modelKey ? readThumb(selectedCat, designName, modelKey) : null;
       if (cached) {
         setDesignThumbs((prev) => ({ ...prev, [designName]: cached }));
         return;
       }
 
-      // marcar en vuelo
       inFlight.add(designName);
-
-      // controlador para poder abortar si se cambia de categoría/modelo
       const ac = new AbortController();
       abortControllersRef.current.set(designName, ac);
 
-      // encolar tarea con concurrencia controlada
       scheduleThumb(async () => {
         try {
-          // si ya llegó de otro lado, salir
           if (designThumbs[designName]) return;
 
           const files = indexData.diseños?.[selectedCat]?.[designName];
@@ -597,9 +577,6 @@ export default function App() {
 
           const touched = [];
           const perFileCanvases = [];
-
-          // (opción fast) usar solo primer SVG para un thumb instantáneo
-          // luego, en idle, podrías regenerar con todos. Aquí ya hacemos todos en 1024.
 
           for (const file of files) {
             if (ac.signal.aborted) return;
@@ -616,7 +593,6 @@ export default function App() {
               const piece = pieces.get(targetKey);
               if (!piece) continue;
 
-              // rasterizado de baja para thumbs
               const canvas = await rasterizeSvgToCanvasSafe(
                 svgText,
                 THUMB_TEX,
@@ -632,7 +608,6 @@ export default function App() {
             }
           }
 
-          // Aplicar overlays de baja, suspender render para no jankear
           try {
             await viewerApiRef.current?.suspendRender?.(true);
           } catch {}
@@ -654,7 +629,6 @@ export default function App() {
           });
           const thumb = boc?.front || null;
 
-          // revertir overlays
           for (const rec of touched) {
             const m = rec.m;
             if (rec.hadOverlay) {
@@ -691,14 +665,14 @@ export default function App() {
         }
       });
     },
-    [hasModel, selectedCat, indexData, pieces, designThumbs, modelKey, scheduleThumb]
+    [hasModel, selectedCat, indexData, pieces, designThumbs, modelKey, scheduleThumb, THUMB_TEX, FIT_MODE, THUMB_BOC_W, THUMB_BOC_H]
   );
 
-  // Aplicar diseño (carga SVGs)
   const handleSelectDesign = useCallback(
     async (designName) => {
       if (!hasModel || !selectedCat) return;
       setSelectedDesign(designName);
+      setMobilePanel(null); // Cerrar panel móvil al seleccionar
       setStatus(`Aplicando diseño “${designName}”…`);
 
       const files = indexData.diseños?.[selectedCat]?.[designName];
@@ -747,13 +721,12 @@ export default function App() {
       const firstWithSvg = Array.from(next.values()).find((p) => p.svg?.xml);
       setSelectedKey(firstWithSvg?.nameBase ?? null);
       setStatus(`Diseño “${designName}” aplicado`);
-      setEditMode("global"); // por defecto: general
+      setEditMode("global");
       pushSnapshot();
     },
-    [hasModel, selectedCat, indexData, pieces, pushSnapshot]
+    [hasModel, selectedCat, indexData, pieces, pushSnapshot, TEX_SIZE, FIT_MODE]
   );
 
-  /* ---------- cambiar color (con opción batch) ---------- */
   const _applyObjectColorChange = useCallback(
     async (pieceKey, objectId, newHex, { silent = false } = {}) => {
       const next = new Map(pieces);
@@ -796,7 +769,7 @@ export default function App() {
 
       if (!silent) pushSnapshot();
     },
-    [pieces, pushSnapshot]
+    [pieces, pushSnapshot, TEX_SIZE, FIT_MODE]
   );
 
   const applyBatchColor = useCallback(
@@ -811,7 +784,6 @@ export default function App() {
     [_applyObjectColorChange, pushSnapshot]
   );
 
-  /* ---------- extract ---------- */
   function safeExtractObjects(svgXml) {
     try {
       const list = extractSvgObjects(svgXml, { groupNames: ["diseño", "diseno"] });
@@ -822,7 +794,6 @@ export default function App() {
     }
   }
 
-  /* ---------- UI interacciones ---------- */
   const togglePiece = (nameBase) => {
     setSelectedKey((prev) => (prev === nameBase ? null : nameBase));
     setPalettePopover(null);
@@ -858,14 +829,12 @@ export default function App() {
     }
   }, [hasModel]);
 
-  // ======= piezas visibles solo tras elegir diseño =======
   const allPieces = Array.from(pieces.values());
   const visiblePieces = selectedDesign ? allPieces.filter((p) => p.svg?.xml) : [];
 
-  // ======= capas globales unificadas por nombre =======
   const globalLayers = useMemo(() => {
     if (!selectedDesign) return [];
-    const map = new Map(); // name -> { name, hex, refs: [{pieceKey, objectId}] }
+    const map = new Map();
     for (const p of visiblePieces) {
       for (const o of p.objects || []) {
         const name = o.objectName || "CAPA";
@@ -881,13 +850,9 @@ export default function App() {
     );
   }, [selectedDesign, visiblePieces]);
 
-  /* ===================== PANEL DE TEXTO (DERECHA) ===================== */
   const [textPanelOpen, setTextPanelOpen] = useState(false);
+  const [editingText, setEditingText] = useState(null);
 
-  // 1. NUEVO: Estado para el texto que se está editando
-  const [editingText, setEditingText] = useState(null); // null = modo "Crear"
-
-  // Estado inicial para el formulario de texto (modo "Crear")
   const [initialTextForm] = useState({
     text: "TU TEXTO",
     fontFamily: "Inter, system-ui, Arial, sans-serif",
@@ -904,7 +869,6 @@ export default function App() {
     opacity: 1,
   });
 
-  // Función para CREAR un texto nuevo
   const handleAddText = async (textConfig) => {
     if (!hasModel) {
       alert("Cargá un modelo primero.");
@@ -916,328 +880,206 @@ export default function App() {
       return;
     }
     await api.addTextOverlay({ ...textConfig });
-    setStatus("Texto listo: hacé clic sobre el modelo para colocarlo. Doble clic para editar.");
-
-    setTextPanelOpen(false); // Cerrar panel
-    setEditingText(null); // Limpiar estado de edición
+    setStatus("Texto listo: hacé clic sobre el modelo para colocarlo.");
+    setTextPanelOpen(false);
+    setEditingText(null);
+    setMobilePanel(null); // Cerrar panel móvil
   };
 
-  // 2. NUEVO: Función para ACTUALIZAR un texto existente
   const handleUpdateText = async (textConfig) => {
     if (!hasModel || !editingText) return;
     const api = viewerApiRef.current;
     if (!api?.updateTextOverlay) return;
-
-    // Llamamos a la nueva función del viewer
     await api.updateTextOverlay({ ...textConfig });
-
-    // Actualizamos el estado de edición (por si el usuario sigue cambiando)
     setEditingText(textConfig);
-
     setStatus("Texto actualizado.");
-    // No cerramos el panel
   };
 
-  // 3. NUEVO: Función para recibir la selección desde Viewer3D
   const handleTextSelected = (textData) => {
-    setEditingText(textData); // null si se deselecciona, o data si se selecciona
+    setEditingText(textData);
     if (textData) {
-      setTextPanelOpen(true); // Abrir el panel si se seleccionó un texto
+      setTextPanelOpen(true);
+      if (isMobile) setMobilePanel('text');
     }
   };
 
-  // 4. NUEVO: Lógica para manejar la apertura manual del panel (botón 🅣)
   const handleToggleTextPanel = () => {
     const isOpening = !textPanelOpen;
     setTextPanelOpen(isOpening);
-
     if (isOpening) {
-      // Si se abre manualmente, forzamos modo "Crear"
       setEditingText(null);
       viewerApiRef.current?.clearSelectionAll();
     } else {
-      // Si se cierra, limpiamos todo
       setEditingText(null);
       viewerApiRef.current?.clearSelectionAll();
+      if (isMobile) setMobilePanel(null);
     }
   };
 
-  // 5. NUEVO: Lógica para el botón "Cerrar" del panel
   const handleCloseTextPanel = () => {
     setTextPanelOpen(false);
     setEditingText(null);
     viewerApiRef.current?.clearSelectionAll();
+    if (isMobile) setMobilePanel(null);
   };
 
-  /* ============================ RENDER ============================ */
-  return (
-    <div className="app">
-      <aside id="ui" className="sidebar">
-        <section className="sec" style={{ marginTop: 0 }}>
-          <div
-            className="small"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 10,
-            }}
-          >
-            <span>{status}</span>
-            <div className="progress" style={{ width: 160 }}>
-              <span style={{ width: `${progress}%` }} />
+  // NUEVO: Handler para la barra de navegación móvil
+  const handleMobilePanelChange = (panelId) => {
+    // Si se presiona el panel activo, se cierra. Si no, se abre el nuevo.
+    const newPanel = mobilePanel === panelId ? null : panelId;
+    setMobilePanel(newPanel);
+
+    // Lógica específica al abrir/cerrar paneles
+    if (newPanel === 'molds') {
+      if(catList.length > 0) setGalleryOpen(true);
+      else handleSelectCategory(catList[0]); // Si no hay categoría, abre la primera
+    } else {
+      setGalleryOpen(false);
+    }
+
+    if (newPanel === 'text') {
+        if (!textPanelOpen) handleToggleTextPanel();
+    } else {
+        if (textPanelOpen) handleCloseTextPanel();
+    }
+  };
+
+
+  // Componente que renderiza el contenido de la barra lateral (para reutilizarlo en móvil)
+  const SidebarContent = () => (
+    <>
+      <section className="sec" style={{ marginTop: 0 }}>
+        <div className="small" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <span>{status}</span>
+          <div className="progress" style={{ width: 160 }}>
+            <span style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      </section>
+
+      <section className="sec">
+        <h3>📐 Diseños</h3>
+        {selectedCat && hasModel ? (
+          designList.length === 0 ? (
+            <div className="small">No hay diseños para esta categoría.</div>
+          ) : (
+            <div className="design-grid">
+              {designList.map((d) => (
+                <DesignThumbBtn
+                  key={d}
+                  name={d}
+                  img={designThumbs[d] && designThumbs[d] !== "__ERR__" ? designThumbs[d] : undefined}
+                  disabled={!hasModel}
+                  onClick={() => handleSelectDesign(d)}
+                  ensure={() => ensureDesignThumb(d)}
+                />
+              ))}
+            </div>
+          )
+        ) : (
+          <div className="small">Elegí un molde y un modelo para habilitar.</div>
+        )}
+      </section>
+
+      <section className="sec colorhub compact">
+        <div className="colorhub__header">
+          <div className="colorhub__title">
+            <span className="emoji">🎨</span>
+            <div className="titles">
+              <div className="h1">Seleccionar color</div>
+              <div className="sub">Modo: <strong>{editMode === "global" ? "general" : "por pieza"}</strong></div>
             </div>
           </div>
-        </section>
-
-        <section className="sec">
-          <h3>📐 Diseños</h3>
-          {selectedCat && hasModel ? (
-            designList.length === 0 ? (
-              <div className="small">No hay diseños para esta categoría.</div>
+          <div className="chip" role="group">
+            <button className="btn" onClick={() => setEditMode("global")} aria-pressed={editMode === "global"}>General</button>
+            <button className="btn" onClick={() => setEditMode("per-piece")} aria-pressed={editMode === "per-piece"}>Por pieza</button>
+          </div>
+        </div>
+        <div className="objpane flat">
+          {!selectedDesign ? (
+            <div className="objpane-empty big">Elegí un <strong>diseño</strong> para ver opciones.</div>
+          ) : editMode === "global" ? (
+            globalLayers.length === 0 ? (
+              <div className="objpane-empty">No se detectaron capas de “diseño”.</div>
             ) : (
-              <div className="design-grid">
-                {designList.map((d) => (
-                  <DesignThumbBtn
-                    key={d}
-                    name={d}
-                    img={
-                      designThumbs[d] && designThumbs[d] !== "__ERR__"
-                        ? designThumbs[d]
-                        : undefined
-                    }
-                    disabled={!hasModel}
-                    onClick={() => handleSelectDesign(d)}
-                    ensure={() => ensureDesignThumb(d)}
-                  />
+              <div className="layer-list">
+                {globalLayers.map((L) => (
+                  <button key={L.name} className="layer-row" onClick={(e) => openPaletteForLayer(e, { mode: "global", layerName: L.name, refs: L.refs })} title={`Cambiar ${L.name}`}>
+                    <span className="row-left">
+                      <span className="swatch-lg" style={{ background: L.hex || "#000000" }} />
+                      <span className="layer-name">{L.name}</span>
+                    </span>
+                    <span className="row-hex">{(L.hex || "#000000").toUpperCase()}</span>
+                  </button>
                 ))}
               </div>
             )
+          ) : visiblePieces.length === 0 ? (
+            <div className="objpane-empty">Este diseño no tiene SVG asignado.</div>
           ) : (
-            <div className="small">
-              Elegí un molde (rueda inferior) y un modelo para habilitar.
-            </div>
+            visiblePieces.map((p) => {
+              const objects = p.objects || [];
+              const isOpen = selectedKey === p.nameBase;
+              return (
+                <div key={p.nameBase} className="piece-block">
+                  <button className={`piece-toggle ${isOpen ? "is-open" : ""}`} onClick={() => togglePiece(p.nameBase)} title={`Pieza: ${p.nameBase}`}>
+                    <span className="piece-toggle__name">{p.nameBase}</span>
+                    <svg className={`chev ${isOpen ? "up" : "down"}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      {isOpen ? <polyline points="18 15 12 9 6 15" /> : <polyline points="6 9 12 15 18 9" />}
+                    </svg>
+                  </button>
+                  {isOpen && objects.length > 0 && (
+                    <div className="layer-list">
+                      {objects.map((o) => {
+                        const currentHex = currentHexFor(p, o);
+                        return (
+                          <button key={`${p.nameBase}::${o.objectId}`} className="layer-row" onClick={(e) => openPaletteForLayer(e, { mode: "per-piece", pieceKey: p.nameBase, objectId: o.objectId })} title={`Color: ${currentHex}`}>
+                            <span className="row-left">
+                              <span className="swatch-lg" style={{ background: currentHex }} />
+                              <span className="layer-name">{o.objectName}</span>
+                            </span>
+                            <span className="row-hex">{currentHex}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
-        </section>
+        </div>
+      </section>
+    </>
+  );
 
-        {/* ========= NUEVO ColorHub ========= */}
-        <section className="sec colorhub compact">
-          <div className="colorhub__header">
-            <div className="colorhub__title">
-              <span className="emoji">🎨</span>
-              <div className="titles">
-                <div className="h1">Seleccionar color</div>
-                <div className="sub">
-                  Cambiá colores del diseño. Modo:&nbsp;
-                  <strong>{editMode === "global" ? "general" : "por pieza"}</strong>
-                </div>
-              </div>
-            </div>
 
-            {/* Toggle general / por pieza */}
-            <div className="chip" role="group" aria-label="Modo de color">
-              <button
-                className="btn"
-                onClick={() => setEditMode("global")}
-                aria-pressed={editMode === "global"}
-                style={{
-                  borderRadius: "999px 0 0 999px",
-                  background: editMode === "global" ? "var(--accent)" : "var(--pill-bg)",
-                  color: editMode === "global" ? "#fff" : "inherit",
-                  borderColor: "var(--pill-br)",
-                }}
-              >
-                General
-              </button>
-              <button
-                className="btn"
-                onClick={() => setEditMode("per-piece")}
-                aria-pressed={editMode === "per-piece"}
-                style={{
-                  borderRadius: "0 999px 999px 0",
-                  background: editMode === "per-piece" ? "var(--accent)" : "var(--pill-bg)",
-                  color: editMode === "per-piece" ? "#fff" : "inherit",
-                  borderLeft: "0",
-                  borderColor: "var(--pill-br)",
-                }}
-              >
-                Por pieza
-              </button>
-            </div>
-          </div>
+  return (
+    <div className={`app ${isMobile ? "is-mobile" : "is-desktop"}`}>
+      {/* --- BARRA LATERAL (SOLO ESCRITORIO) --- */}
+      {!isMobile && (
+        <aside id="ui" className="sidebar">
+          <SidebarContent />
+        </aside>
+      )}
 
-          <div className="objpane flat">
-            {!selectedDesign ? (
-              <div className="objpane-empty big">
-                Elegí un <strong>diseño</strong> para ver opciones.
-              </div>
-            ) : editMode === "global" ? (
-              globalLayers.length === 0 ? (
-                <div className="objpane-empty">
-                  No se detectaron capas del grupo “diseño”.
-                </div>
-              ) : (
-                <div className="layer-list">
-                  {globalLayers.map((L) => (
-                    <button
-                      key={L.name}
-                      className="layer-row"
-                      onClick={(e) =>
-                        openPaletteForLayer(e, {
-                          mode: "global",
-                          layerName: L.name,
-                          refs: L.refs,
-                        })
-                      }
-                      title={`Cambiar ${L.name} en todas las piezas`}
-                    >
-                      <span className="row-left">
-                        <span
-                          className="swatch-lg"
-                          style={{ background: L.hex || "#000000" }}
-                        />
-                        <span className="layer-name">{L.name}</span>
-                      </span>
-                      <span className="row-hex">{(L.hex || "#000000").toUpperCase()}</span>
-                    </button>
-                  ))}
-                </div>
-              )
-            ) : visiblePieces.length === 0 ? (
-              <div className="objpane-empty">
-                Este diseño no tiene SVG asignado a las piezas cargadas.
-              </div>
-            ) : (
-              visiblePieces.map((p) => {
-                const objects = p.objects || [];
-                const isOpen = selectedKey === p.nameBase;
-                return (
-                  <div key={p.nameBase} className="piece-block">
-                    <button
-                      className={`piece-toggle ${isOpen ? "is-open" : ""}`}
-                      onClick={() => togglePiece(p.nameBase)}
-                      title={`Pieza: ${p.nameBase}`}
-                    >
-                      <span className="piece-toggle__name">{p.nameBase}</span>
-                      <svg
-                        className={`chev ${isOpen ? "up" : "down"}`}
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        {isOpen ? (
-                          <polyline points="18 15 12 9 6 15" />
-                        ) : (
-                          <polyline points="6 9 12 15 18 9" />
-                        )}
-                      </svg>
-                    </button>
-
-                    {isOpen && objects.length > 0 && (
-                      <div className="layer-list">
-                        {objects.map((o) => {
-                          const currentHex = currentHexFor(p, o);
-                          return (
-                            <button
-                              key={`${p.nameBase}::${o.objectId}`}
-                              className="layer-row"
-                              onClick={(e) =>
-                                openPaletteForLayer(e, {
-                                  mode: "per-piece",
-                                  pieceKey: p.nameBase,
-                                  objectId: o.objectId,
-                                })
-                              }
-                              title={`Color actual: ${currentHex}`}
-                            >
-                              <span className="row-left">
-                                <span className="swatch-lg" style={{ background: currentHex }} />
-                                <span className="layer-name">{o.objectName}</span>
-                              </span>
-                              <span className="row-hex">{currentHex}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </section>
-      </aside>
-
-      {/* Viewport 3D */}
+      {/* --- VISOR 3D Y ELEMENTOS ASOCIADOS --- */}
       <main id="view" className="viewport">
         <div className="top-controls">
-          <button
-            className="icon-btn"
-            onClick={handleOpenPreview}
-            disabled={!hasModel || isGeneratingPreview}
-            aria-label="Descargar boceto"
-            title="Descargar boceto"
-          >
+          <button className="icon-btn" onClick={handleOpenPreview} disabled={!hasModel || isGeneratingPreview} title="Descargar boceto">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
             </svg>
           </button>
-
-          <button
-            className="icon-btn"
-            onClick={() => imageInputRef.current?.click()}
-            disabled={!hasModel}
-            aria-label="Cargar imagen"
-            title="Cargar imagen"
-          >
+          <button className="icon-btn" onClick={() => imageInputRef.current?.click()} disabled={!hasModel} title="Cargar imagen">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="14" height="14" rx="2" ry="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="M3 14l4-4 3 3 2-2 5 5" />
-              <path d="M19 7v10" />
+              <rect x="3" y="3" width="14" height="14" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M3 14l4-4 3 3 2-2 5 5" /><path d="M19 7v10" />
             </svg>
           </button>
-          <input
-            ref={imageInputRef}
-            type="file"
-            accept="image/*"
-            style={{ display: "none" }}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) viewerApiRef.current?.addDecalImage(f);
-              e.target.value = "";
-            }}
-          />
-
-          <button
-            className="icon-btn"
-            onClick={handleUndo}
-            aria-label="Volver atrás"
-            title="Volver atrás"
-          >
+          <input ref={imageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) viewerApiRef.current?.addDecalImage(f); e.target.value = ""; }} />
+          <button className="icon-btn" onClick={handleUndo} title="Volver atrás">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="19" y1="12" x2="5" y2="12" />
-              <polyline points="12 19 5 12 12 5" />
-            </svg>
-          </button>
-
-          {/* Texto (panel derecho) */}
-          <button
-            className="icon-btn"
-            onClick={handleToggleTextPanel}
-            aria-label="Texto (panel derecho)"
-            title="Texto (panel derecho)"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 7V5h16v2" />
-              <path d="M9 5v14" />
-              <path d="M15 5v14" />
-              <path d="M4 19h16" />
+              <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
             </svg>
           </button>
         </div>
@@ -1248,71 +1090,48 @@ export default function App() {
           onProgress={onProgress}
           onClearAll={onClear}
           onOverlaysChanged={() => pushSnapshot()}
-          onTextSelected={handleTextSelected} // selección de texto
+          onTextSelected={handleTextSelected}
           log={console.log}
         />
 
-        <MoldWheel
-          categories={catList}
-          selected={selectedCat}
-          onSelect={handleSelectCategory}
-          centerLabel="MOLDES"
-          visibleSlots={5}
-          arcDeg={200}
-          ringRadius={180}
-          thickness={140}
-          centerSize={128}
-          bottomOffset={0}
-        />
+        {/* El MoldWheel solo se muestra en escritorio */}
+        {!isMobile && (
+          <MoldWheel
+            categories={catList}
+            selected={selectedCat}
+            onSelect={handleSelectCategory}
+            centerLabel="MOLDES"
+          />
+        )}
 
+        {/* La galería de modelos se usa para seleccionar en escritorio y en móvil (panel 'molds') */}
         <ModelGallery
           open={galleryOpen}
           category={selectedCat}
           models={moldFiles}
-          onClose={() => setGalleryOpen(false)}
+          onClose={() => {
+            setGalleryOpen(false);
+            if(isMobile) setMobilePanel(null); // Cierra el panel de moldes si se cierra la galería
+          }}
           onSelect={handleLoadGlbFromGallery}
         />
       </main>
 
-      {previewImages && (
-        <PreviewModal
-          images={previewImages}
-          onClose={() => setPreviewImages(null)}
-          onDownload={async () => {
-            if (!previewImages) return;
-            const mod = await import("jspdf");
-            const jsPDF = mod.jsPDF || mod.default;
-            const pdf = new jsPDF({
-              orientation: "landscape",
-              unit: "pt",
-              format: "a4",
-            });
-            const pageW = pdf.internal.pageSize.getWidth();
-            const pageH = pdf.internal.pageSize.getHeight();
-            const margin = 28;
-            const cellW = (pageW - margin * 3) / 2;
-            const cellH = (pageH - margin * 3) / 2;
-
-            pdf.setFont("helvetica", "bold");
-            pdf.setFontSize(14);
-            pdf.text(
-              `Boceto – Vistas (frente, espalda, izquierda, derecha) · ${new Date().toLocaleDateString()}`,
-              margin,
-              margin - 8
-            );
-            const place = (img, x, y) =>
-              img && pdf.addImage(img, "PNG", x, y, cellW, cellH, undefined, "FAST");
-            place(previewImages.front, margin, margin);
-            place(previewImages.back, margin * 2 + cellW, margin);
-            place(previewImages.left, margin, margin * 2 + cellH);
-            place(previewImages.right, margin * 2 + cellW, margin * 2 + cellH);
-            pdf.save("boceto-vistas.pdf");
-            setPreviewImages(null);
-          }}
-        />
+      {/* --- PANELES FLOTANTES (SOLO MÓVIL) --- */}
+      {isMobile && mobilePanel && (mobilePanel === 'designs' || mobilePanel === 'colors') && (
+        <div className="mobile-panel-container">
+          <div className="mobile-panel-backdrop" onClick={() => setMobilePanel(null)} />
+          <aside className="sidebar is-mobile-panel">
+            <SidebarContent />
+          </aside>
+        </div>
       )}
 
-      {/* Popover de color — aplica según modo */}
+      {/* --- NAVEGACIÓN INFERIOR (SOLO MÓVIL) --- */}
+      {isMobile && <BottomNav activePanel={mobilePanel} onPanelChange={handleMobilePanelChange} />}
+
+      {/* --- MODALES Y POPOVERS GLOBALES --- */}
+      {previewImages && <PreviewModal images={previewImages} onClose={() => setPreviewImages(null)} />}
       {palettePopover && (
         <ColorPopover
           anchorRect={palettePopover.anchorRect}
@@ -1322,20 +1141,14 @@ export default function App() {
             if (palettePopover.mode === "global") {
               await applyBatchColor(palettePopover.refs, hex);
             } else {
-              await _applyObjectColorChange(
-                palettePopover.pieceKey,
-                palettePopover.objectId,
-                hex
-              );
+              await _applyObjectColorChange(palettePopover.pieceKey, palettePopover.objectId, hex);
             }
             setPalettePopover(null);
           }}
         />
       )}
-
-      {/* Panel de Texto */}
       <TextPanel
-        open={textPanelOpen}
+        open={textPanelOpen && (!isMobile || (isMobile && mobilePanel === 'text'))}
         onClose={handleCloseTextPanel}
         onCreateText={handleAddText}
         onUpdateText={handleUpdateText}
