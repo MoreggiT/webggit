@@ -124,7 +124,7 @@ const currentHexFor = (piece, o) =>
     "#000000"
   ).toUpperCase();
 
-/* ========== Popover de color (ajustes para móvil) ========== */
+/* ========== Popover de color (ajustes móvil) ========== */
 function ColorPopover({ anchorRect, onPick, onClose, palette }) {
   const ref = React.useRef(null);
   const [pos, setPos] = useState({
@@ -142,9 +142,6 @@ function ColorPopover({ anchorRect, onPick, onClose, palette }) {
   const W = COLS * BTN + (COLS - 1) * GAP + PAD * 2;
   const H = rows * BTN + (rows - 1) * GAP + PAD * 2;
 
-  // 🔒 Fuera-click robusto en móvil:
-  // - usamos pointerdown en captura
-  // - "armamos" el listener con un pequeño delay para ignorar el toque que abrió
   useEffect(() => {
     let armed = false;
     const arm = () => (armed = true);
@@ -194,7 +191,7 @@ function ColorPopover({ anchorRect, onPick, onClose, palette }) {
     <div
       ref={ref}
       className={`color-popover ${pos.side === "left" ? "is-left" : "is-right"}`}
-      style={{ left: pos.left, top: pos.top, width: W, height: H, zIndex: 1400 }} // ⬅️ sobre bottom-nav
+      style={{ left: pos.left, top: pos.top, width: W, height: H, zIndex: 1400 }}
       role="dialog"
       aria-label="Selector de color"
     >
@@ -769,7 +766,6 @@ export default function App() {
     setEditMode("per-piece");
   };
 
-  // 🛠️ FIX: Evitar que el tap de apertura sea leído como “click afuera”
   const openPaletteForLayer = (evt, payload) => {
     evt.preventDefault();
     evt.stopPropagation();
@@ -1003,7 +999,7 @@ export default function App() {
           />
         )}
 
-        {/* Galerías de Modelos/Categorías (siguen siendo modales/overlays) */}
+        {/* Galerías de Modelos/Categorías */}
         <ModelGallery
           open={categoryGalleryOpen}
           isCategoryGallery={true}
@@ -1029,36 +1025,44 @@ export default function App() {
 
       {/* --- ÁREA DE PANELES MÓVILES (Slot que empuja el 3D) --- */}
       {isMobile && (
-        <div className={`mobile-panel-slot ${mobilePanel && mobilePanel !== 'molds' && mobilePanel !== 'text' ? 'is-open' : ''}`}>
-          
-          {(mobilePanel === 'designs' || mobilePanel === 'colors') && <StatusSection />}
-          
-          <DesignsPanel
-              isMobile={true}
-              open={mobilePanel === 'designs'} 
-              onClose={() => setMobilePanel(null)}
-              selectedCat={selectedCat}
-              hasModel={hasModel}
-              designList={designList}
-              designThumbs={designThumbs}
-              handleSelectDesign={handleSelectDesign}
-              ensureDesignThumb={ensureDesignThumb}
-          />
+        <div className={`mobile-panel-slot ${mobilePanel && (mobilePanel === 'designs' || mobilePanel === 'colors') ? 'is-open' : ''}`}>
+          {/* Solo monto el panel activo para que el slot pueda quedar :empty */}
+          {mobilePanel === 'designs' && (
+            <>
+              <StatusSection />
+              <DesignsPanel
+                isMobile={true}
+                open={true}
+                onClose={() => setMobilePanel(null)}
+                selectedCat={selectedCat}
+                hasModel={hasModel}
+                designList={designList}
+                designThumbs={designThumbs}
+                handleSelectDesign={handleSelectDesign}
+                ensureDesignThumb={ensureDesignThumb}
+              />
+            </>
+          )}
 
-          <ColorsPanel
-              isMobile={true}
-              open={mobilePanel === 'colors'}
-              onClose={() => setMobilePanel(null)}
-              editMode={editMode}
-              setEditMode={setEditMode}
-              selectedDesign={selectedDesign}
-              globalLayers={globalLayers}
-              visiblePieces={visiblePieces}
-              selectedKey={selectedKey}
-              togglePiece={togglePiece}
-              openPaletteForLayer={openPaletteForLayer}
-              currentHexFor={currentHexFor}
-          />
+          {mobilePanel === 'colors' && (
+            <>
+              <StatusSection />
+              <ColorsPanel
+                isMobile={true}
+                open={true}
+                onClose={() => setMobilePanel(null)}
+                editMode={editMode}
+                setEditMode={setEditMode}
+                selectedDesign={selectedDesign}
+                globalLayers={globalLayers}
+                visiblePieces={visiblePieces}
+                selectedKey={selectedKey}
+                togglePiece={togglePiece}
+                openPaletteForLayer={openPaletteForLayer}
+                currentHexFor={currentHexFor}
+              />
+            </>
+          )}
         </div>
       )}
 
