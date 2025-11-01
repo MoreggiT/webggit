@@ -1,190 +1,157 @@
 // src/components/ModelThumb.jsx
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState, useMemo } from "react";
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
-import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { useInView } from "react-intersection-observer";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import "./modelthumb.css";
 
-/**
- * Tarjeta con mini render 3D + nombre (la tarjeta completa es clickeable).
- *
- * Props:
- *  - modelUrl: string             URL del .glb (para preview 3D)
- *  - fileName: string             nombre para mostrar (sin .glb)
- *  - onUse: ()=>void              callback al click
- *  - size?: number                lado (px) del cuadro (default 160)
- */
-export default function ModelThumb({
-  modelUrl,
-  fileName,
-  onUse,
-  size = 160,
-}) {
-  const name = String(fileName || "").replace(/\.[^.]+$/, ""); // sin .glb
+// Un cache simple para las geometrías y materiales
+const cache = new Map();
+const loader = new GLTFLoader();
 
-  // Hook para detectar si el componente es visible en pantalla
-  const { ref: inViewRef, inView } = useInView({
-    triggerOnce: true, // Se activa solo una vez
-    threshold: 0.1,    // Considera visible cuando el 10% del elemento lo esté
-  });
+async function loadModel(url) {
+  if (cache.has(url)) {
+    return cache.get(url);
+  }
+  try {
+    const gltf = await loader.loadAsync(url);
+    const scene = gltf.scene || new THREE.Scene();
+    
+    // Normalizar y centrar la geometría
+    const box = new THREE.Box3().setFromObject(scene);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = 1 / maxDim;
+    
+    // --- ESTA ERA LA LÍNEA DEL PROBLEMA ---
+    // Al centrar cada geometría individualmente, el cálculo del 'center'
+    // se volvía incorrecto. La eliminamos.
+    // scene.traverse((child) => {
+    //   if (child.isMesh) {
+    //     child.geometry.center(); 
+    //   }
+    // });
 
-  const canvasContainerRef = useRef(null);
-  const [failed, setFailed] = useState(false);
-  const hasRendered = useRef(false);
+    // Ahora, simplemente escalamos la escena y la movemos
+    // usando el centro original, lo cual es correcto.
+    scene.scale.set(scale, scale, scale);
+    scene.position.sub(center.multiplyScalar(scale));
+    scene.updateMatrixWorld(true);
 
-  // Combinamos las refs para que IntersectionObserver y Three.js usen el mismo div
-  const setRefs = useCallback(
-    (node) => {
-      canvasContainerRef.current = node;
-      inViewRef(node);
-    },
-    [inViewRef]
-  );
-
-  useEffect(() => {
-    // Si no está en el viewport, no hacemos nada
-    if (!inView) return;
-
-    const root = canvasContainerRef.current;
-    if (!root || hasRendered.current) return;
-
-    // Renderer
-    // preserveDrawingBuffer es necesario para que el render no se borre
-    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    r.setSize(size, size);
-    r.outputColorSpace = THREE.SRGBColorSpace;
-    r.toneMapping = THREE.ACESFilmicToneMapping;
-    r.toneMappingExposure = 1.05;
-    root.appendChild(r.domElement);
-
-    // Scene
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xffffff);
-
-    // Cam
-    const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 100);
-    cam.position.set(0.6, 0.5, 1.2);
-
-    // Env
-    const pmrem = new THREE.PMREMGenerator(r);
-    const env = pmrem.fromScene(new RoomEnvironment(), 0.15).texture;
-    scene.environment = env;
-    pmrem.dispose(); // Liberamos memoria del PMREMGenerator
-
-    // Luces
-    const hemi = new THREE.HemisphereLight(0xffffff, 0xb0b6c0, 0.6);
-    scene.add(hemi);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.35);
-    dir.position.set(2, 3, 2);
-    scene.add(dir);
-
-    let model = null;
-
-    if (modelUrl) {
-      const loader = new GLTFLoader();
-      const draco = new DRACOLoader();
-      draco.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
-      loader.setDRACOLoader(draco);
-      loader.setMeshoptDecoder(MeshoptDecoder);
-
-      loader.load(
-        modelUrl,
-        (gltf) => {
-          model = gltf.scene;
-          // Normalizamos materiales
-          model.traverse((o) => {
-            if (!o.isMesh) return;
-            const mat = o.material?.clone ? o.material.clone() : o.material;
-            if (mat) {
-              if (mat.map) {
-                mat.map.colorSpace = THREE.SRGBColorSpace;
-                mat.map.flipY = false;
-              }
-              if (mat.color) mat.color.set(0xffffff);
-              if ("envMapIntensity" in mat) mat.envMapIntensity = 1.0;
-              if ("roughness" in mat && typeof mat.roughness === "number") {
-                mat.roughness = Math.min(0.95, Math.max(0.35, mat.roughness));
-              }
-              mat.side = THREE.FrontSide;
-              o.material = mat;
-            }
-            o.castShadow = false; o.receiveShadow = false;
-          });
-          scene.add(model);
-
-          // Fit al cuadro
-          const box = new THREE.Box3().setFromObject(model);
-          const sphere = new THREE.Sphere(); box.getBoundingSphere(sphere);
-          const radius = Math.max(sphere.radius, 1e-6);
-          const center = sphere.center;
-          const fitDist = radius / Math.sin(THREE.MathUtils.degToRad(cam.fov) / 2);
-
-          cam.near = Math.max(radius / 100, 0.01);
-          cam.far = radius * 50;
-          const dist = fitDist * 1.15;
-          cam.position.copy(center).addScaledVector(new THREE.Vector3(0.8, 0.7, 1.1).normalize(), dist);
-          cam.lookAt(center);
-          cam.updateProjectionMatrix();
-
-          // Renderizamos la escena UNA SOLA VEZ
-          r.render(scene, cam);
-          hasRendered.current = true;
-        },
-        undefined,
-        (err) => {
-          console.warn("Thumb GLB error:", err?.message || err);
-          setFailed(true);
-        }
-      );
-    } else {
-      // Si no hay modelo, renderizamos la escena vacía una vez
-      r.render(scene, cam);
-      hasRendered.current = true;
-    }
-
-    return () => {
-      try { root.removeChild(r.domElement); } catch {}
-      if (model) {
-        model.traverse((o) => {
-          if (o.isMesh) {
-            o.geometry?.dispose?.();
-            o.material?.map?.dispose?.();
-            o.material?.dispose?.();
-          }
-        });
-      }
-      r.dispose?.();
-    };
-  }, [size, modelUrl, inView]); // Se ejecuta cuando el componente se hace visible
-
-  // Habilitamos teclado (Enter/Espacio) además del click
-  const onKey = (e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      onUse?.();
-    }
-  };
-
-  return (
-    <div
-      className="mt-card"
-      role="button"
-      tabIndex={0}
-      onClick={onUse}
-      onKeyDown={onKey}
-      aria-label={`Seleccionar ${name}`}
-    >
-      {/* Aplicamos la ref combinada a este div */}
-      <div className="mt-thumb" ref={setRefs} style={{ width: size, height: size }}>
-        {/* El canvas se montará aquí cuando el componente sea visible */}
-        {failed && <div className="mt-badge mt-failed">Error</div>}
-      </div>
-
-      <div className="mt-name">{name}</div>
-    </div>
-  );
+    const result = { scene };
+    cache.set(url, result);
+    return result;
+  } catch (err) {
+    console.error("Error loading model for thumb:", url, err);
+    cache.delete(url); // No guardar en caché si falla
+    throw err;
+  }
 }
+
+function ModelThumb({ modelUrl, fileName, onClick }) {
+  const mountRef = useRef(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  // Usamos useMemo para la escena, cámara y renderer para que no se re-creen
+  const { scene, camera, renderer } = useMemo(() => {
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf1f5f9); // Un fondo gris claro
+
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+    camera.position.z = 1.2;
+    camera.position.y = 0.5;
+    camera.lookAt(0, 0, 0);
+    scene.add(camera);
+    
+    // Luces
+    const ambient = new THREE.AmbientLight(0xffffff, 1.5);
+    scene.add(ambient);
+    const directional = new THREE.DirectionalLight(0xffffff, 2);
+    directional.position.set(2, 5, 3);
+    camera.add(directional);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    
+    return { scene, camera, renderer };
+  }, []);
+
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
+
+    let frameId;
+    let modelScene = null;
+    let isMounted = true;
+
+    const resizeRenderer = () => {
+      const currentMount = mountRef.current;
+      if (!currentMount) return; 
+
+      const { clientWidth, clientHeight } = currentMount;
+      if (clientWidth === 0 || clientHeight === 0) return; 
+
+      renderer.setSize(clientWidth, clientHeight);
+      camera.aspect = clientWidth / clientHeight;
+      camera.updateProjectionMatrix();
+    };
+
+    mount.appendChild(renderer.domElement);
+
+    const animate = () => {
+      if (!isMounted) return;
+      if (modelScene) {
+        modelScene.rotation.y += 0.01; // Rotación suave
+      }
+      renderer.render(scene, camera);
+      frameId = requestAnimationFrame(animate);
+    };
+
+    loadModel(modelUrl)
+      .then((model) => {
+        if (!isMounted) return;
+        modelScene = model.scene;
+        scene.add(modelScene);
+        setLoading(false);
+        resizeRenderer(); // Llamada inicial para ajustar el tamaño
+        animate();
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        setError(true);
+        setLoading(false);
+      });
+
+    // El observador ahora usa la función resizeRenderer corregida
+    const observer = new ResizeObserver(resizeRenderer);
+    observer.observe(mount);
+
+    return () => {
+      isMounted = false;
+      cancelAnimationFrame(frameId);
+      observer.disconnect();
+      if (mount && mount.contains(renderer.domElement)) {
+        mount.removeChild(renderer.domElement);
+      }
+      if (modelScene) {
+        scene.remove(modelScene);
+      }
+    };
+  }, [modelUrl, scene, camera, renderer]); // Dependencias están bien
+
+  return (
+    <button className="model-thumb-btn" onClick={onClick} title={`Cargar ${fileName}`}>
+      <div className="model-thumb-preview" ref={mountRef}>
+        {loading && <div className="thumb-spinner" />}
+        {error && <div className="thumb-error">!</div>}
+      </div>
+      <div className="model-thumb-caption">{fileName.replace(/\.glb$/, "")}</div>
+    </button>
+  );
+}
+
+export default ModelThumb;
+

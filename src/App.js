@@ -261,6 +261,8 @@ export default function App() {
   const [selectedDesign, setSelectedDesign] = useState("");
 
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [categoryGalleryOpen, setCategoryGalleryOpen] = useState(false);
+
 
   const [previewImages, setPreviewImages] = useState(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
@@ -409,7 +411,7 @@ export default function App() {
         setStatus(
           cats.length ? "Elegí un molde ↓" : "No hay categorías en index.json"
         );
-      } catch (err) {
+      } catch (err) { // <-- ERROR CORREGIDO AQUÍ (eliminado '=>')
         console.error("Error leyendo /index.json:", err);
         setStatus(
           `Error al cargar índice: ${err.message || "Verifica tu archivo y configuración de servidor."}`
@@ -420,6 +422,7 @@ export default function App() {
 
   const handleSelectCategory = useCallback(
     async (cat) => {
+      setCategoryGalleryOpen(false); // Cierra la galería de categorías
       setSelectedCat(cat);
       setSelectedDesign("");
       setHasModel(false);
@@ -442,7 +445,7 @@ export default function App() {
       setMoldFiles(files);
       setDesignList(d ? Object.keys(d) : []);
       setDesignThumbs({});
-      setGalleryOpen(true);
+      setGalleryOpen(true); // Abre la galería de modelos
     },
     [indexData]
   );
@@ -925,22 +928,22 @@ export default function App() {
 
   // NUEVO: Handler para la barra de navegación móvil
   const handleMobilePanelChange = (panelId) => {
-    // Si se presiona el panel activo, se cierra. Si no, se abre el nuevo.
     const newPanel = mobilePanel === panelId ? null : panelId;
     setMobilePanel(newPanel);
-
+  
     // Lógica específica al abrir/cerrar paneles
     if (newPanel === 'molds') {
-      if(catList.length > 0) setGalleryOpen(true);
-      else handleSelectCategory(catList[0]); // Si no hay categoría, abre la primera
+      setCategoryGalleryOpen(true);
     } else {
+      setCategoryGalleryOpen(false);
+      // Cierra la galería de modelos si se abre otro panel
       setGalleryOpen(false);
     }
-
+  
     if (newPanel === 'text') {
-        if (!textPanelOpen) handleToggleTextPanel();
+      if (!textPanelOpen) handleToggleTextPanel();
     } else {
-        if (textPanelOpen) handleCloseTextPanel();
+      if (textPanelOpen && !editingText) handleCloseTextPanel();
     }
   };
 
@@ -1077,6 +1080,14 @@ export default function App() {
             </svg>
           </button>
           <input ref={imageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) viewerApiRef.current?.addDecalImage(f); e.target.value = ""; }} />
+          
+          {/* BOTÓN DE TEXTO AÑADIDO */}
+          <button className="icon-btn" onClick={handleToggleTextPanel} disabled={!hasModel} title="Añadir o editar texto">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"></path><path d="M12 18V6"></path><path d="M7 12h10"></path>
+            </svg>
+          </button>
+
           <button className="icon-btn" onClick={handleUndo} title="Volver atrás">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
@@ -1104,14 +1115,27 @@ export default function App() {
           />
         )}
 
-        {/* La galería de modelos se usa para seleccionar en escritorio y en móvil (panel 'molds') */}
+        {/* Galería de CATEGORÍAS (para móvil) */}
+        <ModelGallery
+          open={categoryGalleryOpen}
+          isCategoryGallery={true}
+          category="Categorías"
+          models={catList}
+          onClose={() => {
+            setCategoryGalleryOpen(false);
+            if(isMobile) setMobilePanel(null);
+          }}
+          onSelect={handleSelectCategory}
+        />
+
+        {/* La galería de MODELOS se usa para seleccionar en escritorio y en móvil */}
         <ModelGallery
           open={galleryOpen}
           category={selectedCat}
           models={moldFiles}
           onClose={() => {
             setGalleryOpen(false);
-            if(isMobile) setMobilePanel(null); // Cierra el panel de moldes si se cierra la galería
+            // No cerramos el panel móvil aquí para permitir volver a la lista de categorías
           }}
           onSelect={handleLoadGlbFromGallery}
         />

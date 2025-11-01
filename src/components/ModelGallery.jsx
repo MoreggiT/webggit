@@ -1,93 +1,86 @@
 // src/components/ModelGallery.jsx
-import React, { useEffect, useMemo } from "react";
-import "./modelgallery.css";
+import React, { useEffect, useState } from "react";
 import ModelThumb from "./ModelThumb";
+import "./modelgallery.css";
 
-/**
- * Galería de modelos (modal sobre la rueda)
- * - Centrada horizontalmente en el viewport 3D
- * - Cada tarjeta es un botón con preview 3D (sin botón “Usar”)
- *
- * Props:
- *  - open: boolean
- *  - category: string
- *  - models: string[]                      // nombres de archivos .glb
- *  - onClose: ()=>void
- *  - onSelect: (url: string, fileName: string)=>void
- *  - buildUrl?: (file: string)=>string     // opcional
- *  - anchorXPercent?: number               // 0..100, origen X de animación (base); default 50
- */
 export default function ModelGallery({
-  open = false,
-  category = "",
-  models = [],
-  onClose,
-  onSelect,
-  buildUrl,
-  anchorXPercent = 50,
+  open,
+  category,
+  models,
+  onClose,
+  onSelect,
+  isCategoryGallery = false,
 }) {
-  // Hooks SIEMPRE (no condicional) para cumplir reglas
-  const makeUrl = useMemo(() => {
-    if (typeof buildUrl === "function") return buildUrl;
-    return (file) =>
-      `/moldes/${encodeURIComponent(category)}/${encodeURIComponent(file)}`;
-  }, [buildUrl, category]);
+  const [visible, setVisible] = useState(false);
+  const [closing, setClosing] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => e.key === "Escape" && onClose?.();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  useEffect(() => {
+    if (open) {
+      setVisible(true);
+      setClosing(false);
+    } else {
+      setClosing(true);
+      const timer = setTimeout(() => setVisible(false), 300); // Duración de la animación
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
 
-  const label = category ? `Modelos – ${category}` : "Modelos";
-  if (!open) return null;
+  if (!visible) return null;
 
-  return (
-    <div className="mg-backdrop" onClick={onClose}>
-      <div
-        className="mg-modal"
-        role="dialog"
-        aria-label={label}
-        onClick={(e) => e.stopPropagation()} // no cerrar al click interno
-        style={{ "--mg-anchor-x": `${anchorXPercent}%` }}
-      >
-        <div className="mg-header">
-          <div className="mg-title">{label}</div>
-          <button className="mg-close" onClick={onClose} aria-label="Cerrar">✕</button>
-        </div>
+  const handleSelect = (item) => {
+    if (isCategoryGallery) {
+      onSelect(item);
+    } else {
+      const modelUrl = `/moldes/${encodeURIComponent(category)}/${encodeURIComponent(item)}`;
+      onSelect(modelUrl, item);
+    }
+  };
 
-        <div className="mg-grid">
-          {models?.length ? (
-            models.map((file) => {
-              const url = makeUrl(file);
-              return (
-                <ModelThumb
-                  key={file}
-                  modelUrl={url}
-                  fileName={file}
-                  onUse={() => onSelect?.(url, file)}
-                />
-              );
-            })
-          ) : (
-            <div className="mg-empty">
-              <EmptyIcon />
-              <div>No hay modelos en esta categoría.</div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+  const getIconUrl = (categoryName) => {
+    const formattedName = String(categoryName)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    return `/iconos/${formattedName}.svg`;
+  };
 
-function EmptyIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect x="3" y="6" width="18" height="12" rx="3" stroke="#94a3b8" />
-      <path d="M3 9h18" stroke="#94a3b8" />
-      <path d="M9 6l1.2 1.6a2 2 0 0 0 1.6.8H21" stroke="#94a3b8" />
-    </svg>
-  );
+  return (
+    <div className={`gallery-modal ${closing ? "closing" : ""}`}>
+      <div className="gallery-backdrop" onClick={onClose}></div>
+      <div className="gallery-content">
+        <div className="gallery-header">
+          <h2>{category}</h2>
+          <button className="close-btn" onClick={onClose} aria-label="Cerrar">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div className="gallery-grid">
+          {models.length > 0 ? (
+            models.map((item) =>
+              isCategoryGallery ? (
+                <button key={item} className="category-btn" onClick={() => handleSelect(item)}>
+                  <img src={getIconUrl(item)} alt={item} className="category-icon" />
+                  <span className="category-name">{item}</span>
+                </button>
+              ) : (
+                <ModelThumb
+                  key={item}
+                  modelUrl={`/moldes/${encodeURIComponent(category)}/${encodeURIComponent(item)}`}
+                  fileName={item}
+                  onClick={() => handleSelect(item)}
+                />
+              )
+            )
+          ) : (
+            <div className="gallery-empty">
+              No hay {isCategoryGallery ? "categorías" : "modelos"} disponibles.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
