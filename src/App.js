@@ -9,8 +9,14 @@ import "./index.css";
 import MoldWheel from "./components/MoldWheel";
 import ModelGallery from "./components/ModelGallery";
 import TextPanel from "./components/TextPanel";
-import BottomNav from "./components/BottomNav"; // <-- NUEVO: Barra de navegación móvil
-import { useMediaQuery } from "./hooks/useMediaQuery"; // <-- NUEVO: Hook para detectar tamaño de pantalla
+import BottomNav from "./components/BottomNav";
+import { useMediaQuery } from "./hooks/useMediaQuery";
+
+// ==================================================================
+// --- NUEVAS IMPORTACIONES DE COMPONENTES EXTERNOS ---
+// ==================================================================
+import DesignsPanel from "./components/DesignsPanel";
+import ColorsPanel from "./components/ColorsPanel";
 
 /* ========== helpers de nombres ========== */
 const stripAccents = (s) =>
@@ -119,53 +125,11 @@ const currentHexFor = (piece, o) =>
     "#000000"
   ).toUpperCase();
 
-/* ========== botón de thumb (con IntersectionObserver) ========== */
-function DesignThumbBtn({ name, img, onClick, ensure, disabled }) {
-  const btnRef = React.useRef(null);
+// ==================================================================
+// --- EL COMPONENTE DesignThumbBtn HA SIDO ELIMINADO DE AQUÍ ---
+// --- AHORA SE IMPORTA DESDE SU PROPIO ARCHIVO EN DesignsPanel.jsx ---
+// ==================================================================
 
-  useEffect(() => {
-    if (!btnRef.current || !ensure) return;
-    let observed = true;
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting && observed) {
-            ensure();
-            io.unobserve(e.target);
-            observed = false;
-          }
-        });
-      },
-      { root: null, rootMargin: "200px", threshold: 0.01 }
-    );
-    io.observe(btnRef.current);
-    return () => io.disconnect();
-  }, [ensure]);
-
-  return (
-    <button
-      ref={btnRef}
-      className="design-thumb-btn"
-      onClick={onClick}
-      disabled={disabled}
-      title={name}
-      aria-label={`Aplicar diseño ${name}`}
-      style={{ background: "transparent", border: 0, padding: 0 }}
-    >
-      <div className="design-thumb">
-        {img ? (
-          <img src={img} alt={name} draggable={false} />
-        ) : (
-          <div className="design-thumb-skel">
-            <div className="bar" />
-            <div className="bar short" />
-          </div>
-        )}
-      </div>
-      <div className="design-caption">{name}</div>
-    </button>
-  );
-}
 
 /* ========== Popover de color ========== */
 function ColorPopover({ anchorRect, onPick, onClose, palette }) {
@@ -277,7 +241,6 @@ export default function App() {
   const generatingThumbsRef = useRef(new Set());
   const abortControllersRef = useRef(new Map());
 
-  // NUEVO: Estados para el layout móvil
   const isMobile = useMediaQuery('(max-width: 780px)');
   const [mobilePanel, setMobilePanel] = useState(null);
 
@@ -422,7 +385,7 @@ export default function App() {
 
   const handleSelectCategory = useCallback(
     async (cat) => {
-      setCategoryGalleryOpen(false); // Cierra la galería de categorías
+      setCategoryGalleryOpen(false);
       setSelectedCat(cat);
       setSelectedDesign("");
       setHasModel(false);
@@ -445,14 +408,14 @@ export default function App() {
       setMoldFiles(files);
       setDesignList(d ? Object.keys(d) : []);
       setDesignThumbs({});
-      setGalleryOpen(true); // Abre la galería de modelos
+      setGalleryOpen(true);
     },
     [indexData]
   );
 
   const handleLoadGlbFromGallery = useCallback(async (modelUrl, fileName) => {
     setGalleryOpen(false);
-    setMobilePanel(null); // Cerrar panel móvil al seleccionar
+    setMobilePanel(null);
     setProgress(0);
     setStatus(`Cargando ${fileName}…`);
     viewerApiRef.current?.loadModelFromUrl(modelUrl, {
@@ -675,7 +638,7 @@ export default function App() {
     async (designName) => {
       if (!hasModel || !selectedCat) return;
       setSelectedDesign(designName);
-      setMobilePanel(null); // Cerrar panel móvil al seleccionar
+      setMobilePanel(null);
       setStatus(`Aplicando diseño “${designName}”…`);
 
       const files = indexData.diseños?.[selectedCat]?.[designName];
@@ -886,7 +849,7 @@ export default function App() {
     setStatus("Texto listo: hacé clic sobre el modelo para colocarlo.");
     setTextPanelOpen(false);
     setEditingText(null);
-    setMobilePanel(null); // Cerrar panel móvil
+    setMobilePanel(null);
   };
 
   const handleUpdateText = async (textConfig) => {
@@ -926,17 +889,14 @@ export default function App() {
     if (isMobile) setMobilePanel(null);
   };
 
-  // NUEVO: Handler para la barra de navegación móvil
   const handleMobilePanelChange = (panelId) => {
     const newPanel = mobilePanel === panelId ? null : panelId;
     setMobilePanel(newPanel);
   
-    // Lógica específica al abrir/cerrar paneles
     if (newPanel === 'molds') {
       setCategoryGalleryOpen(true);
     } else {
       setCategoryGalleryOpen(false);
-      // Cierra la galería de modelos si se abre otro panel
       setGalleryOpen(false);
     }
   
@@ -949,6 +909,8 @@ export default function App() {
 
   // ==================================================================
   // --- COMPONENTES DE SECCIONES REFACTORIZADOS ---
+  // --- Las definiciones de DesignsSection y ColorsSection se han eliminado. ---
+  // --- Ahora se usan los componentes externos DesignsPanel y ColorsPanel. ---
   // ==================================================================
 
   const StatusSection = () => (
@@ -962,124 +924,42 @@ export default function App() {
     </section>
   );
 
-  const DesignsSection = () => (
-    <section className="sec">
-      <h3>📐 Diseños</h3>
-      {selectedCat && hasModel ? (
-        designList.length === 0 ? (
-          <div className="small">No hay diseños para esta categoría.</div>
-        ) : (
-          <div className="design-grid">
-            {designList.map((d) => (
-              <DesignThumbBtn
-                key={d}
-                name={d}
-                img={designThumbs[d] && designThumbs[d] !== "__ERR__" ? designThumbs[d] : undefined}
-                disabled={!hasModel}
-                onClick={() => handleSelectDesign(d)}
-                ensure={() => ensureDesignThumb(d)}
-              />
-            ))}
-          </div>
-        )
-      ) : (
-        <div className="small">Elegí un molde y un modelo para habilitar.</div>
-      )}
-    </section>
-  );
-
-  const ColorsSection = () => (
-    <section className="sec colorhub compact">
-      <div className="colorhub__header">
-        <div className="colorhub__title">
-          <span className="emoji">🎨</span>
-          <div className="titles">
-            <div className="h1">Seleccionar color</div>
-            <div className="sub">Modo: <strong>{editMode === "global" ? "general" : "por pieza"}</strong></div>
-          </div>
-        </div>
-        <div className="chip" role="group">
-          <button className="btn" onClick={() => setEditMode("global")} aria-pressed={editMode === "global"}>General</button>
-          <button className="btn" onClick={() => setEditMode("per-piece")} aria-pressed={editMode === "per-piece"}>Por pieza</button>
-        </div>
-      </div>
-      <div className="objpane flat">
-        {!selectedDesign ? (
-          <div className="objpane-empty big">Elegí un <strong>diseño</strong> para ver opciones.</div>
-        ) : editMode === "global" ? (
-          globalLayers.length === 0 ? (
-            <div className="objpane-empty">No se detectaron capas de “diseño”.</div>
-          ) : (
-            <div className="layer-list">
-              {globalLayers.map((L) => (
-                <button key={L.name} className="layer-row" onClick={(e) => openPaletteForLayer(e, { mode: "global", layerName: L.name, refs: L.refs })} title={`Cambiar ${L.name}`}>
-                  <span className="row-left">
-                    <span className="swatch-lg" style={{ background: L.hex || "#000000" }} />
-                    <span className="layer-name">{L.name}</span>
-                  </span>
-                  <span className="row-hex">{(L.hex || "#000000").toUpperCase()}</span>
-                </button>
-              ))}
-            </div>
-          )
-        ) : visiblePieces.length === 0 ? (
-          <div className="objpane-empty">Este diseño no tiene SVG asignado.</div>
-        ) : (
-          visiblePieces.map((p) => {
-            const objects = p.objects || [];
-            const isOpen = selectedKey === p.nameBase;
-            return (
-              <div key={p.nameBase} className="piece-block">
-                <button className={`piece-toggle ${isOpen ? "is-open" : ""}`} onClick={() => togglePiece(p.nameBase)} title={`Pieza: ${p.nameBase}`}>
-                  <span className="piece-toggle__name">{p.nameBase}</span>
-                  <svg className={`chev ${isOpen ? "up" : "down"}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    {isOpen ? <polyline points="18 15 12 9 6 15" /> : <polyline points="6 9 12 15 18 9" />}
-                  </svg>
-                </button>
-                {isOpen && objects.length > 0 && (
-                  <div className="layer-list">
-                    {objects.map((o) => {
-                      const currentHex = currentHexFor(p, o);
-                      return (
-                        <button key={`${p.nameBase}::${o.objectId}`} className="layer-row" onClick={(e) => openPaletteForLayer(e, { mode: "per-piece", pieceKey: p.nameBase, objectId: o.objectId })} title={`Color: ${currentHex}`}>
-                          <span className="row-left">
-                            <span className="swatch-lg" style={{ background: currentHex }} />
-                            <span className="layer-name">{o.objectName}</span>
-                          </span>
-                          <span className="row-hex">{currentHex}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })
-        )}
-      </div>
-    </section>
-  );
-
-  // Componente que renderiza el contenido de la barra lateral (SOLO ESCRITORIO)
   const SidebarContent = () => (
     <>
       <StatusSection />
-      <DesignsSection />
-      <ColorsSection />
+      <DesignsPanel
+        isMobile={false}
+        selectedCat={selectedCat}
+        hasModel={hasModel}
+        designList={designList}
+        designThumbs={designThumbs}
+        handleSelectDesign={handleSelectDesign}
+        ensureDesignThumb={ensureDesignThumb}
+      />
+      <ColorsPanel
+        isMobile={false}
+        editMode={editMode}
+        setEditMode={setEditMode}
+        selectedDesign={selectedDesign}
+        globalLayers={globalLayers}
+        visiblePieces={visiblePieces}
+        selectedKey={selectedKey}
+        togglePiece={togglePiece}
+        openPaletteForLayer={openPaletteForLayer}
+        currentHexFor={currentHexFor}
+      />
     </>
   );
 
 
   return (
     <div className={`app ${isMobile ? "is-mobile" : "is-desktop"}`}>
-      {/* --- BARRA LATERAL (SOLO ESCRITORIO) --- */}
       {!isMobile && (
         <aside id="ui" className="sidebar">
           <SidebarContent />
         </aside>
       )}
 
-      {/* --- VISOR 3D Y ELEMENTOS ASOCIADOS --- */}
       <main id="view" className="viewport">
         <div className="top-controls">
           <button className="icon-btn" onClick={handleOpenPreview} disabled={!hasModel || isGeneratingPreview} title="Descargar boceto">
@@ -1094,7 +974,6 @@ export default function App() {
           </button>
           <input ref={imageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) viewerApiRef.current?.addDecalImage(f); e.target.value = ""; }} />
           
-          {/* BOTÓN DE TEXTO AÑADIDO */}
           <button className="icon-btn" onClick={handleToggleTextPanel} disabled={!hasModel} title="Añadir o editar texto">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M17 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"></path><path d="M12 18V6"></path><path d="M7 12h10"></path>
@@ -1118,7 +997,6 @@ export default function App() {
           log={console.log}
         />
 
-        {/* El MoldWheel solo se muestra en escritorio */}
         {!isMobile && (
           <MoldWheel
             categories={catList}
@@ -1128,7 +1006,6 @@ export default function App() {
           />
         )}
 
-        {/* Galería de CATEGORÍAS (para móvil) */}
         <ModelGallery
           open={categoryGalleryOpen}
           isCategoryGallery={true}
@@ -1141,33 +1018,50 @@ export default function App() {
           onSelect={handleSelectCategory}
         />
 
-        {/* La galería de MODELOS se usa para seleccionar en escritorio y en móvil */}
         <ModelGallery
           open={galleryOpen}
           category={selectedCat}
           models={moldFiles}
           onClose={() => {
             setGalleryOpen(false);
-            // No cerramos el panel móvil aquí para permitir volver a la lista de categorías
           }}
           onSelect={handleLoadGlbFromGallery}
         />
       </main>
 
       {/* --- PANELES FLOTANTES (SOLO MÓVIL) --- */}
-      {/* LÓGICA ACTUALIZADA PARA PANELES SEPARADOS */}
-      {isMobile && (mobilePanel === 'designs' || mobilePanel === 'colors') && (
-        <div className="mobile-panel-container">
-          <div className="mobile-panel-backdrop" onClick={() => setMobilePanel(null)} />
-          <aside className="sidebar is-mobile-panel">
-            <StatusSection />
-            {mobilePanel === 'designs' && <DesignsSection />}
-            {mobilePanel === 'colors' && <ColorsSection />}
-          </aside>
-        </div>
+      {/* --- AHORA SE USAN LOS COMPONENTES EXTERNOS --- */}
+      {isMobile && (
+        <>
+         <StatusSection />
+         <DesignsPanel
+            isMobile={true}
+            open={mobilePanel === 'designs'}
+            onClose={() => setMobilePanel(null)}
+            selectedCat={selectedCat}
+            hasModel={hasModel}
+            designList={designList}
+            designThumbs={designThumbs}
+            handleSelectDesign={handleSelectDesign}
+            ensureDesignThumb={ensureDesignThumb}
+          />
+          <ColorsPanel
+            isMobile={true}
+            open={mobilePanel === 'colors'}
+            onClose={() => setMobilePanel(null)}
+            editMode={editMode}
+            setEditMode={setEditMode}
+            selectedDesign={selectedDesign}
+            globalLayers={globalLayers}
+            visiblePieces={visiblePieces}
+            selectedKey={selectedKey}
+            togglePiece={togglePiece}
+            openPaletteForLayer={openPaletteForLayer}
+            currentHexFor={currentHexFor}
+          />
+        </>
       )}
 
-      {/* --- NAVEGACIÓN INFERIOR (SOLO MÓVIL) --- */}
       {isMobile && <BottomNav activePanel={mobilePanel} onPanelChange={handleMobilePanelChange} />}
 
       {/* --- MODALES Y POPOVERS GLOBALES --- */}
@@ -1198,4 +1092,3 @@ export default function App() {
     </div>
   );
 }
-
