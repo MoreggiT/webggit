@@ -1,6 +1,6 @@
 // src/components/TextPanel.jsx
 import React, { useState, useEffect, useCallback } from "react";
-// 1. Importaremos un archivo CSS nuevo que te daré en el próximo paso
+// 1. Importamos el CSS
 import "./TextPanel.css"; 
 
 // Definimos las fuentes aquí para que sea fácil agregar más
@@ -78,10 +78,12 @@ export default function TextPanel({
     handleChange(key, current === value ? "normal" : value);
   };
 
-  if (!open) return null;
+  // 🔴 CAMBIO: Ya no retornamos null. El panel se oculta/muestra vía CSS.
+  // if (!open) return null; // <--- LÍNEA ELIMINADA
 
   return (
-    <aside className="text-panel-modern">
+    // 🟢 CAMBIO: Añadimos clases dinámicas para controlar la visibilidad
+    <aside className={`text-panel-modern ${open ? 'is-open' : ''}`}>
       {/* Encabezado */}
       <header className="tp-header">
         <h3>{isEditMode ? "✍️ Editar Texto" : "🅣 Agregar Texto"}</h3>
@@ -236,7 +238,7 @@ export default function TextPanel({
           </div>
         </div>
 
-        {/* --- 6. LA NUEVA SECCIÓN: Transformar (Escala) --- */}
+        {/* --- Transformar (Escala) --- */}
         <div className="tp-section">
           <label>Transformar</label>
           <div className="tp-row">
@@ -280,3 +282,4 @@ export default function TextPanel({
     </aside>
   );
 }
+

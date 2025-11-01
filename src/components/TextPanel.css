@@ -13,6 +13,7 @@
 }
 
 .text-panel-modern {
+  /* --- Estilos de Escritorio (Desktop) --- */
   position: fixed;
   right: 12px;
   top: 12px;
@@ -28,7 +29,19 @@
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: var(--tp-text-primary);
+  
+  /* 🟢 CAMBIO: Transición y estado oculto por defecto */
+  transform: translateX(calc(100% + 24px)); /* Oculto fuera de la pantalla a la derecha */
+  transition: transform 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+  visibility: hidden; /* Oculta el panel para que no se pueda tabular */
 }
+
+.text-panel-modern.is-open {
+  /* 🟢 CAMBIO: Estado visible */
+  transform: translateX(0);
+  visibility: visible;
+}
+
 
 /* --- Encabezado --- */
 .tp-header {
@@ -39,6 +52,9 @@
   justify-content: space-between;
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(6px);
+  /* Corregir un posible bug de z-index en Safari */
+  position: relative;
+  z-index: 10;
 }
 .tp-header h3 {
   font-size: 16px;
@@ -73,6 +89,8 @@
   gap: 20px;
   overflow-y: auto;
   flex-grow: 1;
+  /* Para iOS */
+  -webkit-overflow-scrolling: touch;
 }
 .tp-section {
   display: flex;
@@ -118,6 +136,7 @@
   font-size: 14px;
   color: var(--tp-text-primary);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box; /* Añadido para consistencia */
 }
 .tp-textarea:focus,
 .tp-select:focus,
@@ -142,6 +161,7 @@
   background: none;
   cursor: pointer;
   border: 1px solid var(--tp-input-border);
+  flex-shrink: 0; /* Para que no se encoja */
 }
 .tp-color-picker::-webkit-color-swatch {
   border-radius: 7px;
@@ -192,12 +212,14 @@
   color: var(--tp-text-secondary);
   min-width: 32px;
   text-align: right;
+  flex-shrink: 0;
 }
 .tp-label-icon {
   font-size: 14px;
   color: var(--tp-text-primary);
   font-weight: 500;
   min-width: 40px;
+  flex-shrink: 0;
 }
 
 /* --- Grupo de Botones --- */
@@ -215,6 +237,7 @@
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent; /* Quita flash azul en iOS */
 }
 .tp-btn:hover {
   background: #e5e7eb;
@@ -242,6 +265,9 @@
   border-top: 1px solid var(--tp-border);
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(6px);
+  /* Corregir un posible bug de z-index en Safari */
+  position: relative;
+  z-index: 10;
 }
 .tp-btn-primary {
   width: 100%;
@@ -254,6 +280,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 .tp-btn-primary:hover {
   background: #1d4ed8;
@@ -270,3 +297,74 @@
   margin: 0;
   padding: 6px 0;
 }
+
+
+/*
+ * =========================================
+ * 🟢 NUEVO: DISEÑO RESPONSIVE PARA MÓVILES
+ * =========================================
+*/
+
+@media (max-width: 768px) {
+  
+  .text-panel-modern {
+    /* --- Estilos de Móvil (Bottom Sheet) --- */
+    width: 100%;
+    height: auto; /* La altura la da el contenido */
+    max-height: 70vh; /* Máximo 70% de la altura de la pantalla */
+    
+    /* Posicionamiento */
+    bottom: 0; /* Pegado abajo */
+    top: auto;   /* Des-fijar de arriba */
+    left: 0;
+    right: 0;
+    
+    /* Apariencia */
+    border-radius: 20px 20px 0 0; /* Bordes redondeados solo arriba */
+    border: none;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.12); /* Sombra superior */
+    
+    /* 🟢 CAMBIO: Estado oculto por defecto (abajo) */
+    transform: translateY(100%);
+    /* La transición ya está definida arriba */
+  }
+  
+  .text-panel-modern.is-open {
+    /* 🟢 CAMBIO: Estado visible */
+    transform: translateY(0);
+  }
+
+  .tp-header {
+    /* Añadimos un "tirador" para indicar que es deslizable */
+    padding-top: 12px;
+    position: relative;
+  }
+  
+  .tp-header::before {
+    content: '';
+    display: block;
+    width: 48px;
+    height: 5px;
+    background: var(--tp-border);
+    border-radius: 3px;
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .tp-header h3 {
+    margin-top: 10px; /* Espacio para el tirador */
+  }
+
+  .tp-body {
+    padding-bottom: 32px; /* Más espacio abajo por si acaso */
+  }
+
+  .tp-footer {
+    /* Asegurarnos que el padding del footer respete la "safe area" de iOS */
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+  
+}
+
