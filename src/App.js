@@ -411,7 +411,7 @@ export default function App() {
         setStatus(
           cats.length ? "Elegí un molde ↓" : "No hay categorías en index.json"
         );
-      } catch (err) { // <-- ERROR CORREGIDO AQUÍ (eliminado '=>')
+      } catch (err) {
         console.error("Error leyendo /index.json:", err);
         setStatus(
           `Error al cargar índice: ${err.message || "Verifica tu archivo y configuración de servidor."}`
@@ -947,112 +947,125 @@ export default function App() {
     }
   };
 
+  // ==================================================================
+  // --- COMPONENTES DE SECCIONES REFACTORIZADOS ---
+  // ==================================================================
 
-  // Componente que renderiza el contenido de la barra lateral (para reutilizarlo en móvil)
-  const SidebarContent = () => (
-    <>
-      <section className="sec" style={{ marginTop: 0 }}>
-        <div className="small" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-          <span>{status}</span>
-          <div className="progress" style={{ width: 160 }}>
-            <span style={{ width: `${progress}%` }} />
+  const StatusSection = () => (
+    <section className="sec" style={{ marginTop: 0 }}>
+      <div className="small" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <span>{status}</span>
+        <div className="progress" style={{ width: 160 }}>
+          <span style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+    </section>
+  );
+
+  const DesignsSection = () => (
+    <section className="sec">
+      <h3>📐 Diseños</h3>
+      {selectedCat && hasModel ? (
+        designList.length === 0 ? (
+          <div className="small">No hay diseños para esta categoría.</div>
+        ) : (
+          <div className="design-grid">
+            {designList.map((d) => (
+              <DesignThumbBtn
+                key={d}
+                name={d}
+                img={designThumbs[d] && designThumbs[d] !== "__ERR__" ? designThumbs[d] : undefined}
+                disabled={!hasModel}
+                onClick={() => handleSelectDesign(d)}
+                ensure={() => ensureDesignThumb(d)}
+              />
+            ))}
+          </div>
+        )
+      ) : (
+        <div className="small">Elegí un molde y un modelo para habilitar.</div>
+      )}
+    </section>
+  );
+
+  const ColorsSection = () => (
+    <section className="sec colorhub compact">
+      <div className="colorhub__header">
+        <div className="colorhub__title">
+          <span className="emoji">🎨</span>
+          <div className="titles">
+            <div className="h1">Seleccionar color</div>
+            <div className="sub">Modo: <strong>{editMode === "global" ? "general" : "por pieza"}</strong></div>
           </div>
         </div>
-      </section>
-
-      <section className="sec">
-        <h3>📐 Diseños</h3>
-        {selectedCat && hasModel ? (
-          designList.length === 0 ? (
-            <div className="small">No hay diseños para esta categoría.</div>
+        <div className="chip" role="group">
+          <button className="btn" onClick={() => setEditMode("global")} aria-pressed={editMode === "global"}>General</button>
+          <button className="btn" onClick={() => setEditMode("per-piece")} aria-pressed={editMode === "per-piece"}>Por pieza</button>
+        </div>
+      </div>
+      <div className="objpane flat">
+        {!selectedDesign ? (
+          <div className="objpane-empty big">Elegí un <strong>diseño</strong> para ver opciones.</div>
+        ) : editMode === "global" ? (
+          globalLayers.length === 0 ? (
+            <div className="objpane-empty">No se detectaron capas de “diseño”.</div>
           ) : (
-            <div className="design-grid">
-              {designList.map((d) => (
-                <DesignThumbBtn
-                  key={d}
-                  name={d}
-                  img={designThumbs[d] && designThumbs[d] !== "__ERR__" ? designThumbs[d] : undefined}
-                  disabled={!hasModel}
-                  onClick={() => handleSelectDesign(d)}
-                  ensure={() => ensureDesignThumb(d)}
-                />
+            <div className="layer-list">
+              {globalLayers.map((L) => (
+                <button key={L.name} className="layer-row" onClick={(e) => openPaletteForLayer(e, { mode: "global", layerName: L.name, refs: L.refs })} title={`Cambiar ${L.name}`}>
+                  <span className="row-left">
+                    <span className="swatch-lg" style={{ background: L.hex || "#000000" }} />
+                    <span className="layer-name">{L.name}</span>
+                  </span>
+                  <span className="row-hex">{(L.hex || "#000000").toUpperCase()}</span>
+                </button>
               ))}
             </div>
           )
+        ) : visiblePieces.length === 0 ? (
+          <div className="objpane-empty">Este diseño no tiene SVG asignado.</div>
         ) : (
-          <div className="small">Elegí un molde y un modelo para habilitar.</div>
-        )}
-      </section>
-
-      <section className="sec colorhub compact">
-        <div className="colorhub__header">
-          <div className="colorhub__title">
-            <span className="emoji">🎨</span>
-            <div className="titles">
-              <div className="h1">Seleccionar color</div>
-              <div className="sub">Modo: <strong>{editMode === "global" ? "general" : "por pieza"}</strong></div>
-            </div>
-          </div>
-          <div className="chip" role="group">
-            <button className="btn" onClick={() => setEditMode("global")} aria-pressed={editMode === "global"}>General</button>
-            <button className="btn" onClick={() => setEditMode("per-piece")} aria-pressed={editMode === "per-piece"}>Por pieza</button>
-          </div>
-        </div>
-        <div className="objpane flat">
-          {!selectedDesign ? (
-            <div className="objpane-empty big">Elegí un <strong>diseño</strong> para ver opciones.</div>
-          ) : editMode === "global" ? (
-            globalLayers.length === 0 ? (
-              <div className="objpane-empty">No se detectaron capas de “diseño”.</div>
-            ) : (
-              <div className="layer-list">
-                {globalLayers.map((L) => (
-                  <button key={L.name} className="layer-row" onClick={(e) => openPaletteForLayer(e, { mode: "global", layerName: L.name, refs: L.refs })} title={`Cambiar ${L.name}`}>
-                    <span className="row-left">
-                      <span className="swatch-lg" style={{ background: L.hex || "#000000" }} />
-                      <span className="layer-name">{L.name}</span>
-                    </span>
-                    <span className="row-hex">{(L.hex || "#000000").toUpperCase()}</span>
-                  </button>
-                ))}
+          visiblePieces.map((p) => {
+            const objects = p.objects || [];
+            const isOpen = selectedKey === p.nameBase;
+            return (
+              <div key={p.nameBase} className="piece-block">
+                <button className={`piece-toggle ${isOpen ? "is-open" : ""}`} onClick={() => togglePiece(p.nameBase)} title={`Pieza: ${p.nameBase}`}>
+                  <span className="piece-toggle__name">{p.nameBase}</span>
+                  <svg className={`chev ${isOpen ? "up" : "down"}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    {isOpen ? <polyline points="18 15 12 9 6 15" /> : <polyline points="6 9 12 15 18 9" />}
+                  </svg>
+                </button>
+                {isOpen && objects.length > 0 && (
+                  <div className="layer-list">
+                    {objects.map((o) => {
+                      const currentHex = currentHexFor(p, o);
+                      return (
+                        <button key={`${p.nameBase}::${o.objectId}`} className="layer-row" onClick={(e) => openPaletteForLayer(e, { mode: "per-piece", pieceKey: p.nameBase, objectId: o.objectId })} title={`Color: ${currentHex}`}>
+                          <span className="row-left">
+                            <span className="swatch-lg" style={{ background: currentHex }} />
+                            <span className="layer-name">{o.objectName}</span>
+                          </span>
+                          <span className="row-hex">{currentHex}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )
-          ) : visiblePieces.length === 0 ? (
-            <div className="objpane-empty">Este diseño no tiene SVG asignado.</div>
-          ) : (
-            visiblePieces.map((p) => {
-              const objects = p.objects || [];
-              const isOpen = selectedKey === p.nameBase;
-              return (
-                <div key={p.nameBase} className="piece-block">
-                  <button className={`piece-toggle ${isOpen ? "is-open" : ""}`} onClick={() => togglePiece(p.nameBase)} title={`Pieza: ${p.nameBase}`}>
-                    <span className="piece-toggle__name">{p.nameBase}</span>
-                    <svg className={`chev ${isOpen ? "up" : "down"}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      {isOpen ? <polyline points="18 15 12 9 6 15" /> : <polyline points="6 9 12 15 18 9" />}
-                    </svg>
-                  </button>
-                  {isOpen && objects.length > 0 && (
-                    <div className="layer-list">
-                      {objects.map((o) => {
-                        const currentHex = currentHexFor(p, o);
-                        return (
-                          <button key={`${p.nameBase}::${o.objectId}`} className="layer-row" onClick={(e) => openPaletteForLayer(e, { mode: "per-piece", pieceKey: p.nameBase, objectId: o.objectId })} title={`Color: ${currentHex}`}>
-                            <span className="row-left">
-                              <span className="swatch-lg" style={{ background: currentHex }} />
-                              <span className="layer-name">{o.objectName}</span>
-                            </span>
-                            <span className="row-hex">{currentHex}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-      </section>
+            );
+          })
+        )}
+      </div>
+    </section>
+  );
+
+  // Componente que renderiza el contenido de la barra lateral (SOLO ESCRITORIO)
+  const SidebarContent = () => (
+    <>
+      <StatusSection />
+      <DesignsSection />
+      <ColorsSection />
     </>
   );
 
@@ -1142,11 +1155,14 @@ export default function App() {
       </main>
 
       {/* --- PANELES FLOTANTES (SOLO MÓVIL) --- */}
-      {isMobile && mobilePanel && (mobilePanel === 'designs' || mobilePanel === 'colors') && (
+      {/* LÓGICA ACTUALIZADA PARA PANELES SEPARADOS */}
+      {isMobile && (mobilePanel === 'designs' || mobilePanel === 'colors') && (
         <div className="mobile-panel-container">
           <div className="mobile-panel-backdrop" onClick={() => setMobilePanel(null)} />
           <aside className="sidebar is-mobile-panel">
-            <SidebarContent />
+            <StatusSection />
+            {mobilePanel === 'designs' && <DesignsSection />}
+            {mobilePanel === 'colors' && <ColorsSection />}
           </aside>
         </div>
       )}
@@ -1182,3 +1198,4 @@ export default function App() {
     </div>
   );
 }
+
