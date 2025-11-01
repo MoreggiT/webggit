@@ -1,8 +1,7 @@
 /* src/components/designs-panel.css
-   Panel de Diseños — estética "app" (glass, sin bordes, sombras suaves)
-   • Respeta safe areas: --ui-safe-top / --ui-safe-bottom
-   • No bloquea el bottom-nav en móvil (modo slot soportado)
-   • Sin bordes visibles; usamos blur + sombras y separaciones por espacio
+   Panel de Diseños — miniaturas minimalistas (solo imagen + nombre)
+   • Sin tarjetas, sin bordes, sin fondo, sin sombras en cada ítem
+   • Respeta safe areas (no tapa bottom-nav en móvil/slot)
 */
 
 :root{
@@ -11,18 +10,13 @@
 
   --dp-width: 340px;
 
-  /* Superficie tipo “tarjeta glass” */
+  /* Superficie del panel (puede ajustarse) */
   --dp-surface: rgba(255,255,255,0.65);
   --dp-blur: 12px;
   --dp-shadow: 0 12px 36px rgba(15, 23, 42, 0.14);
 
-  /* Tipografía/colores neutros */
   --dp-text: var(--text-primary, #0f172a);
   --dp-muted: var(--text-secondary, #64748b);
-
-  /* Estados / efectos */
-  --dp-hover-shadow: 0 14px 40px rgba(15, 23, 42, 0.16);
-  --dp-thumb-shadow: 0 8px 28px rgba(15, 23, 42, 0.10);
 
   --z-panel: 1300;
   --z-panel-closed: 900;
@@ -38,7 +32,6 @@
   bottom: calc(12px + var(--ui-safe-bottom));
   width: var(--dp-width);
 
-  /* look app */
   background: var(--dp-surface);
   backdrop-filter: blur(var(--dp-blur));
   -webkit-backdrop-filter: blur(var(--dp-blur));
@@ -78,8 +71,6 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-
-  /* capa glass sin borde */
   background: linear-gradient(
     to bottom,
     rgba(255,255,255,0.7),
@@ -97,7 +88,6 @@
   color: var(--dp-text);
 }
 
-/* botón ghost, sin borde */
 .dp-close-btn {
   width: 36px;
   height: 36px;
@@ -109,13 +99,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: transform .14s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
+  transition: transform .14s ease, background .2s ease, color .2s ease;
 }
 .dp-close-btn:hover {
   transform: translateY(-1px);
   background: rgba(255,255,255,0.8);
   color: var(--dp-text);
-  box-shadow: 0 8px 24px rgba(15,23,42,.12);
 }
 .dp-close-btn:active { transform: translateY(0); }
 
@@ -131,7 +120,6 @@
   flex-grow: 1;
   -webkit-overflow-scrolling: touch;
 
-  /* espacio real para no chocar con bottom nav */
   padding-bottom: calc(18px + env(safe-area-inset-bottom) + var(--ui-safe-bottom));
 }
 
@@ -143,7 +131,7 @@
 }
 
 /* =========================
-   Grid (Desktop)
+   Grid (Desktop) — Ítems MINIMAL
 ========================= */
 .design-grid {
   display: grid;
@@ -151,49 +139,40 @@
   gap: 12px;
 }
 
-/* tarjeta sin borde, efecto app */
+/* Botón contenedor SIN tarjeta ni fondo */
 .design-thumb-btn {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
+
+  background: transparent;
+  border: none;
+  padding: 0;
   cursor: pointer;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
 
-  background: rgba(255,255,255,0.7);
-  border: none;
-  border-radius: 14px;
-  padding: 8px;
-  box-shadow: var(--dp-thumb-shadow);
-
-  transition: transform .12s ease, box-shadow .2s ease, filter .2s ease, opacity .2s ease;
-  will-change: transform, box-shadow, filter;
+  transition: transform .10s ease, opacity .15s ease, filter .15s ease;
 }
 .design-thumb-btn:hover {
   transform: translateY(-1px);
   filter: saturate(1.02);
-  box-shadow: var(--dp-hover-shadow);
 }
 .design-thumb-btn:active { transform: translateY(0); }
 
-.design-thumb-btn.is-selected {
-  /* resalte sutil sin borde visible */
-  box-shadow:
-    inset 0 0 0 2px rgba(37, 99, 235, .18),
-    0 12px 36px rgba(15,23,42,.14);
-  background: rgba(255,255,255,0.85);
-}
-
-/* imagen 4:3 con radio suave */
+/* Solo miniatura (SIN fondo, SIN borde, SIN sombra) */
 .design-thumb {
   width: 100%;
   aspect-ratio: 4/3;
-  object-fit: cover;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #f8fafc, #eef2f7);
+  object-fit: contain;          /* respeta contenido */
+  background: transparent !important; /* sin fondo */
+  border: none !important;           /* sin borde */
+  border-radius: 0 !important;       /* sin radio */
   display: block;
 }
 
-/* nombre sutil, sin barras ni líneas */
+/* Nombre debajo, sutil */
 .design-name {
   font-size: 12px;
   color: var(--dp-muted);
@@ -201,6 +180,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: .2px;
+  text-align: center;
+  max-width: 100%;
+}
+
+/* Estado seleccionado: solo realce de texto, sin cajas */
+.design-thumb-btn.is-selected .design-name {
+  color: var(--accent, #2563eb);
+  font-weight: 600;
 }
 
 /* =========================
@@ -226,7 +213,6 @@
 
     z-index: var(--z-panel-closed);
   }
-
   .designs-panel-modern.is-open {
     transform: translateY(0);
     visibility: visible;
@@ -235,7 +221,6 @@
     z-index: var(--z-panel);
   }
 
-  /* “pestañita” arriba, estilo app */
   .dp-header {
     position: relative;
     padding-top: 18px;
@@ -256,13 +241,13 @@
     padding: 12px 12px calc(22px + env(safe-area-inset-bottom) + var(--ui-safe-bottom));
   }
 
-  /* Grid pasa a carrusel horizontal, sin bordes */
+  /* Carrusel horizontal sin tarjetas ni fondo */
   .design-grid {
     display: flex;
     flex-wrap: nowrap;
     overflow-x: auto;
     gap: 12px;
-    padding: 2px 2px 4px 2px;
+    padding: 2px;
     margin: 0 -2px;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
@@ -274,7 +259,6 @@
 
 /* =========================
    Modo Slot (NO overlay)
-   — el panel vive dentro de .mobile-panel-slot y NO tapa el bottom-nav
 ========================= */
 .mobile-panel-slot .designs-panel-modern {
   position: static !important;
