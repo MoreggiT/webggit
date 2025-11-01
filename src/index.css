@@ -340,6 +340,108 @@ input[type=number]::-webkit-inner-spin-button{ -webkit-appearance: none; margin:
 input[type=number]{ -moz-appearance: textfield; }
 input:disabled, select:disabled, button:disabled{ opacity: .6; cursor: not-allowed; }
 
+/* (El resto de los estilos se mantiene igual) */
+/* ... tus otros estilos como .right-drawer, .text-inline-editor, etc. ... */
+.right-drawer{
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: 360px;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 24px rgba(2,6,23,.08);
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  animation: rdIn .18s ease both;
+}
+@keyframes rdIn{ from{ transform: translateX(20px); opacity: .0;} to{ transform:none; opacity:1; } }
+.rd-header{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding: 12px 12px;
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+.rd-title{ display:flex; gap:10px; align-items:center; }
+.rd-title .emoji{
+  width:32px; height:32px; display:flex; align-items:center; justify-content:center;
+  border-radius:10px; background:#fff; border:1px solid var(--border);
+  box-shadow: 0 3px 10px rgba(2,6,23,.06);
+}
+.rd-title .h1{ font-size:15px; font-weight:900; }
+.rd-title .sub{ font-size:12px; color: var(--muted); margin-top:2px; }
+.rd-body{
+  padding: 12px;
+  overflow: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rd-footer{
+  padding: 12px;
+  display: flex; gap: 8px; justify-content: flex-end;
+  border-top: 1px solid var(--border);
+  background: #fff;
+}
+.form-block{ display:flex; flex-direction:column; gap:6px; }
+.form-row{ display:flex; gap:10px; }
+.form-row .form-block{ flex:1; }
+.lbl{
+  font-size:12px; font-weight:800; color:var(--muted);
+}
+.inp{
+  width: 100%;
+  appearance: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff; color: var(--text);
+  padding: 8px 10px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.inp:focus{
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-100);
+}
+.inp.color{
+  padding: 0; height: 36px;
+}
+.inp.textarea{
+  resize: vertical;
+  min-height: 120px;
+}
+.view-root.text-place-mode canvas{ cursor: copy !important; }
+.view-root.text-move-mode canvas{ cursor: move !important; }
+.text-inline-editor{
+  position: absolute;
+  z-index: 1300;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(2,6,23,.18), 0 3px 8px rgba(2,6,23,.1);
+  padding: 10px;
+  min-width: 260px;
+  max-width: min(70vw, 640px);
+}
+.text-inline-editor textarea{
+  width: 100%;
+  min-height: 90px;
+  border: 0;
+  outline: none;
+  resize: both;
+  font: 700 22px/1.25 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  color: #0f172a;
+  background: transparent;
+}
+.text-inline-editor .actions{
+  display:flex; gap:8px; justify-content:flex-end; margin-top:8px;
+}
+.text-inline-editor .actions .btn{
+  border-radius:10px; padding:6px 10px; font-weight:800;
+}
+.text-inline-editor .hint{
+  font-size:11px; color: var(--muted); margin-top:6px;
+}
+
 /* ==========================================
    Responsivo
 ========================================== */
@@ -351,7 +453,7 @@ input:disabled, select:disabled, button:disabled{ opacity: .6; cursor: not-allow
 @media (max-width: 780px){
   .app {
     flex-direction: column;
-    height: 100vh;
+    height: auto;
     overflow-y: auto;
   }
   .sidebar{
@@ -359,125 +461,44 @@ input:disabled, select:disabled, button:disabled{ opacity: .6; cursor: not-allow
     inset: auto;
     width: 100%;
     height: auto;
-    max-height: 45vh;
+    max-height: none;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+    overflow-y: visible;
   }
   .viewport{
     position: relative;
     inset: auto;
     flex-grow: 1;
-    min-height: 55vh;
+    min-height: 60dvh;
   }
   .top-controls{
     position: fixed;
-    top: 8px;
+    top: calc(8px + env(safe-area-inset-top));
     left: 50%;
     transform: translateX(-50%);
     z-index: 1000;
+    width: calc(100% - 24px);
+    max-width: 400px;
   }
-  .right-drawer{ width: min(94vw, 420px); }
-}
+  .right-drawer{
+    width: min(94vw, 420px);
+  }
+  
+  /* MEJORA: Aumentar el área táctil de los botones */
+  button, .icon-btn {
+    padding: 10px 14px;
+  }
+  .icon-btn {
+    width: 38px;
+    height: 38px;
+  }
 
-/* (El resto de los estilos se mantiene igual) */
-/* ... tus otros estilos como .right-drawer, .text-inline-editor, etc. ... */
-
-.right-drawer{
- position: fixed;
- top: 0; right: 0; bottom: 0;
- width: 360px;
- background: var(--panel);
- border-left: 1px solid var(--border);
- box-shadow: -8px 0 24px rgba(2,6,23,.08);
- z-index: 1200;
- display: flex;
- flex-direction: column;
- animation: rdIn .18s ease both;
-}
-@keyframes rdIn{ from{ transform: translateX(20px); opacity: .0;} to{ transform:none; opacity:1; } }
-.rd-header{
- display:flex; align-items:center; justify-content:space-between; gap:10px;
- padding: 12px 12px;
- border-bottom: 1px solid var(--border);
- background: #fff;
-}
-.rd-title{ display:flex; gap:10px; align-items:center; }
-.rd-title .emoji{
- width:32px; height:32px; display:flex; align-items:center; justify-content:center;
- border-radius:10px; background:#fff; border:1px solid var(--border);
- box-shadow: 0 3px 10px rgba(2,6,23,.06);
-}
-.rd-title .h1{ font-size:15px; font-weight:900; }
-.rd-title .sub{ font-size:12px; color: var(--muted); margin-top:2px; }
-.rd-body{
- padding: 12px;
- overflow: auto;
- flex: 1;
- display: flex;
- flex-direction: column;
- gap: 12px;
-}
-.rd-footer{
- padding: 12px;
- display: flex; gap: 8px; justify-content: flex-end;
- border-top: 1px solid var(--border);
- background: #fff;
-}
-.form-block{ display:flex; flex-direction:column; gap:6px; }
-.form-row{ display:flex; gap:10px; }
-.form-row .form-block{ flex:1; }
-.lbl{
- font-size:12px; font-weight:800; color:var(--muted);
-}
-.inp{
- width: 100%;
- appearance: none;
- border: 1px solid var(--border);
- border-radius: 10px;
- background: #fff; color: var(--text);
- padding: 8px 10px;
- transition: border-color .15s ease, box-shadow .15s ease;
-}
-.inp:focus{
- outline: none; border-color: var(--accent);
- box-shadow: 0 0 0 3px var(--accent-100);
-}
-.inp.color{
- padding: 0; height: 36px;
-}
-.inp.textarea{
- resize: vertical;
- min-height: 120px;
-}
-.view-root.text-place-mode canvas{ cursor: copy !important; }
-.view-root.text-move-mode canvas{ cursor: move !important; }
-.text-inline-editor{
- position: absolute;
- z-index: 1300;
- background: #fff;
- border: 1px solid var(--border);
- border-radius: 12px;
- box-shadow: 0 12px 28px rgba(2,6,23,.18), 0 3px 8px rgba(2,6,23,.1);
- padding: 10px;
- min-width: 260px;
- max-width: min(70vw, 640px);
-}
-.text-inline-editor textarea{
- width: 100%;
- min-height: 90px;
- border: 0;
- outline: none;
- resize: both;
- font: 700 22px/1.25 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
- color: #0f172a;
- background: transparent;
-}
-.text-inline-editor .actions{
- display:flex; gap:8px; justify-content:flex-end; margin-top:8px;
-}
-.text-inline-editor .actions .btn{
- border-radius:10px; padding:6px 10px; font-weight:800;
-}
-.text-inline-editor .hint{
- font-size:11px; color: var(--muted); margin-top:6px;
+  /* === NUEVA REGLA PARA EL SELECTOR DE MOLDES === */
+  /* Esta regla elimina la altura máxima del panel de objetos,
+     permitiendo que la grilla de moldes se expanda y sea visible. */
+  .objpane {
+    max-height: none;
+    overflow: visible;
+  }
 }
