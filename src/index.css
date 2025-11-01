@@ -19,20 +19,16 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #f3f4f6;
   color: #1f2937;
-  /* Prevenir scroll en el body */
-  overflow: hidden;
-  height: 100vh;
-  width: 100vw;
+  /* Evita el rebote en móvil */
+  overscroll-behavior: none;
 }
 
 /* Estructura principal de la App */
 .app {
   display: flex;
-  /* Usar 100vh (viewport height) es correcto */
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background: #f3f4f6;
 }
 
 .sidebar {
@@ -42,25 +38,15 @@ body {
   border-right: 1px solid var(--border);
   overflow-y: auto;
   padding-bottom: 32px;
-  z-index: 20; /* Asegurar que esté sobre el visor */
+  /* Para un scroll suave en Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
 }
 
 .viewport {
   flex-grow: 1;
   position: relative; /* Para posicionar los controles */
-  min-width: 0; /* CORRECCIÓN: Previene que el flex item se expanda */
-  height: 100%; /* CORRECCIÓN: Asegura que el viewport tenga altura */
-}
-
-/* CORRECCIÓN: Forzar el canvas de Three.js a llenar el viewport */
-.viewport > canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  z-index: 1; /* Detrás de los controles */
+  overflow: hidden; /* Asegura que nada se salga */
 }
 
 /* Controles sobre el visor 3D */
@@ -175,6 +161,10 @@ body {
   margin-top: 8px;
   text-align: center;
   font-weight: 500;
+  /* Evita que el texto se parta en dos líneas */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Panel de colores */
@@ -335,16 +325,11 @@ body {
 
 .app.is-mobile {
   flex-direction: column;
-  /* CORRECCIÓN: Aplicar padding para la barra nav al contenedor principal */
-  padding-bottom: 64px;
-  /* CORRECCIÓN: Asegurar que el padding se reste del 100vh */
-  box-sizing: border-box; 
 }
 
-.app.is-mobile .viewport {
-  flex-grow: 1; /* Crece para llenar el espacio */
-  height: 100%; /* Ocupa el 100% del espacio restante */
-  min-height: 0; /* CORRECCIÓN CLAVE: Permite que el viewport se encoja */
+.app.is-mobile main.viewport {
+  /* Espacio para la barra de navegación inferior */
+  padding-bottom: 64px; 
 }
 
 /* Contenedor de paneles móviles flotantes */
@@ -352,6 +337,7 @@ body {
   position: fixed;
   inset: 0;
   z-index: 999;
+  pointer-events: none; /* No bloquear clics por defecto */
 }
 
 .mobile-panel-backdrop {
@@ -359,6 +345,7 @@ body {
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
   animation: mobileFadeIn 0.3s ease;
+  pointer-events: auto; /* El fondo sí se puede cliquear para cerrar */
 }
 
 .sidebar.is-mobile-panel {
@@ -367,15 +354,87 @@ body {
   left: 0;
   right: 0;
   width: 100%;
-  max-height: 75vh;
+  pointer-events: auto; /* El panel es interactivo */
+  
+  /* ***** CAMBIO PRINCIPAL ***** */
+  /* Ya no ocupa 75vh, sino una altura más controlada */
+  height: auto;
+  max-height: 320px; 
+  /* **************************** */
+
   border-right: 0;
   border-top: 1px solid var(--border);
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
   animation: mobileSlideInUp 0.3s ease;
-  /* CORRECCIÓN: El padding para la nav bar ya está en .app, no se necesita aquí */
-  padding-bottom: env(safe-area-inset-bottom);
+  /* Espacio para la barra de nav y el notch si el panel es muy alto */
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  /* Para un scroll suave en móvil */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
 }
+
+/* --- NUEVOS ESTILOS PARA EL SCROLL HORIZONTAL DE DISEÑOS --- */
+@media (max-width: 780px) {
+  .sidebar.is-mobile-panel .sec {
+    padding: 16px; /* Menos padding en móvil */
+  }
+  .sidebar.is-mobile-panel .sec h3 {
+    margin-bottom: 12px;
+  }
+  
+  /* Así se vuelve "lineal" y no se "deforma" */
+  .design-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 12px;
+    padding: 4px 16px 12px 16px; /* Padding para que se vea el scroll */
+    margin: 0 -16px; /* Compensa el padding de .sec */
+    grid-template-columns: none; /* Anula el grid */
+    -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
+    scrollbar-height: thin;
+  }
+  
+  .design-thumb-btn {
+    width: 90px;      /* Ancho fijo */
+    flex-shrink: 0;   /* Evita que se encoja */
+  }
+  
+  .design-thumb {
+    height: 70px;     /* Altura fija */
+  }
+
+  /* --- MEJORAS AL PANEL DE COLORES MÓVIL --- */
+  .colorhub .objpane.flat {
+    /* Limita la altura de la lista de colores y la hace scrolleable */
+    max-height: 200px; 
+    overflow-y: auto;
+    padding-right: 8px; /* Espacio para la barra de scroll */
+  }
+
+  .colorhub__header {
+    flex-direction: column; /* Apila el título y el toggle */
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .colorhub__title {
+    gap: 8px;
+  }
+  .colorhub__title .emoji {
+    font-size: 1.25rem;
+  }
+  .chip {
+    width: 100%;
+  }
+  .chip .btn {
+    flex-grow: 1; /* Hace que los botones "General" y "Por Pieza" ocupen 50% */
+    text-align: center;
+  }
+}
+/* --- FIN DE ESTILOS MÓVIL --- */
+
 
 @keyframes mobileFadeIn {
   from { opacity: 0; }
@@ -386,3 +445,4 @@ body {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
+
