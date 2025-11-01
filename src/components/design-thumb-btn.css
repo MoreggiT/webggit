@@ -1,0 +1,54 @@
+/* src/components/design-thumb-btn.css */
+.design-thumb-btn {
+  cursor: pointer;
+  /* Reseteo de botón */
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.design-thumb {
+  /* 🟢 ARREGLO: Cambiado height por aspect-ratio para evitar estiramiento */
+  aspect-ratio: 4 / 3;
+  width: 100%; /* Ocupa el ancho de la columna del grid */
+  background: var(--bg-light, #f9fafb);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.design-thumb:hover {
+  border-color: var(--accent, #2563eb);
+}
+.design-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.design-thumb-skel {
+  width: 80%;
+}
+.design-thumb-skel .bar {
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+.design-thumb-skel .bar.short {
+  width: 60%;
+}
+.design-caption {
+  font-size: 0.8rem;
+  margin-top: 8px;
+  text-align: center;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary, #1f2937);
+}
+
