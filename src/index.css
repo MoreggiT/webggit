@@ -8,6 +8,17 @@
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
   --bg-light: #f9fafb;
+
+  /* =========================
+     Escala global de z-index
+     (para capas consistentes en toda la app)
+  ========================== */
+  --z-3d: 0;            /* canvas, base */
+  --z-ui: 100;          /* controles flotantes (top-controls) */
+  --z-popover: 1100;    /* popovers/menús flotantes */
+  --z-bottomnav: 1200;  /* barra inferior móvil */
+  --z-panel: 1300;      /* paneles laterales / mobile slot */
+  --z-modal: 2000;      /* modales (ModelGallery, etc.) */
 }
 
 /* ... (reseteo de CSS básico, si tienes uno) ... */
@@ -27,6 +38,7 @@ body {
 .app {
   display: flex;
   height: 100vh;
+  height: 100dvh; /* mejora experiencia en móviles modernos */
   width: 100vw;
   overflow: hidden;
 }
@@ -46,7 +58,8 @@ body {
 .viewport {
   flex-grow: 1;
   position: relative; /* Para posicionar los controles */
-  overflow: hidden; /* Asegura que nada se salga */
+  overflow: hidden;   /* Asegura que nada se salga */
+  z-index: var(--z-3d);
 }
 
 /* Controles sobre el visor 3D */
@@ -54,7 +67,7 @@ body {
   position: absolute;
   top: 16px;
   right: 16px;
-  z-index: 10;
+  z-index: var(--z-ui);
   display: flex;
   gap: 8px;
   background: rgba(255, 255, 255, 0.8);
@@ -286,7 +299,7 @@ body {
 /* Popover de color */
 .color-popover {
   position: fixed;
-  z-index: 1001;
+  z-index: var(--z-popover);
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
@@ -357,6 +370,7 @@ body {
   overflow-y: auto;
   transition: max-height 0.3s ease-in-out;
   -webkit-overflow-scrolling: touch;
+  z-index: var(--z-panel);
 }
 /* Con este selector, el panel no ocupa espacio si está vacío */
 .mobile-panel-slot:empty {
@@ -367,7 +381,7 @@ body {
 .app.is-mobile .bottom-nav {
   flex-shrink: 0; /* No se encoge, mantiene su altura */
   position: relative; /* O static, para que forme parte del flujo normal */
-  z-index: 1000; /* Se mantiene sobre otros elementos si es necesario */
+  z-index: var(--z-bottomnav);
 }
 
 /* --- ESTILOS ANTIGUOS ELIMINADOS --- */
@@ -439,4 +453,29 @@ body {
     text-align: center;
   }
 }
-/* --- FIN DE ESTILOS MÓVIL --- */
+
+/* =========================
+   Integración con modales globales
+   (ModelGallery y otros)
+========================= */
+
+/* El contenedor del modal queda SIEMPRE por encima
+   de UI y bottom-nav sin bloquear clics fuera del contenido */
+.gallery-modal {
+  z-index: var(--z-modal) !important;
+  pointer-events: none; /* el overlay no bloquea fuera */
+}
+
+/* Backdrop visual no bloquea interacción externa */
+.gallery-backdrop {
+  pointer-events: none !important;
+}
+
+/* Solo el contenido del modal capta clics */
+.gallery-content {
+  pointer-events: auto !important;
+}
+
+/* =========================
+   FIN
+========================= */

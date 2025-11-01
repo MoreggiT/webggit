@@ -1,69 +1,122 @@
-/* src/components/designs-panel.css */
+/* src/components/designs-panel.css
+   Panel de Diseños (modernizado y con capas seguras)
+   - Respeta toolbar/top-controls con --ui-safe-top
+   - No bloquea el 3D ni botones cuando está cerrado
+   - Solo capta clics cuando .is-open
+   - Z-index alineado con stack seguro (40 cerrado / 60 abierto)
+*/
 
-/* Estilos base del panel (copiados de TextPanel.css) */
+/* =========================
+   Variables locales del panel
+========================= */
+:root{
+  /* Altura segura para que el panel no tape tus botones superiores.
+     Ajusta este valor según tu toolbar real. */
+  --ui-safe-top: 64px;
+  --dp-width: 320px;
+
+  /* Tokens de color (fallbacks incluidos) */
+  --dp-bg: var(--card, #ffffff);
+  --dp-br: var(--border, #e5e7eb);
+  --dp-text: var(--text-primary, #111827);
+  --dp-text-2: var(--text-secondary, #6b7280);
+  --dp-pill-bg: var(--pill-bg, #f3f4f6);
+  --dp-pill-br: var(--pill-br, #e5e7eb);
+  --dp-shadow: var(--shadow, 0 12px 40px rgba(2,6,23,.18));
+}
+
+/* =========================
+   Contenedor principal
+========================= */
 .designs-panel-modern {
   position: fixed;
   right: 12px;
-  top: 12px;
+  top: var(--ui-safe-top);   /* 👈 evita tapar la botonera superior */
   bottom: 12px;
-  width: 320px;
-  background: var(--card, #ffffff);
-  border: 1px solid var(--border, #e5e7eb);
+  width: var(--dp-width);
+  background: var(--dp-bg);
+  border: 1px solid var(--dp-br);
   border-radius: 16px;
-  box-shadow: var(--shadow, 0 4px 12px rgba(0,0,0,0.08));
-  z-index: 800;
+  box-shadow: var(--dp-shadow);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  color: var(--text-primary, #111827);
-  
+  color: var(--dp-text);
+
+  /* Estado cerrado: fuera de vista, no capta eventos */
   transform: translateX(calc(100% + 24px));
-  transition: transform 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+  transition: transform 0.35s cubic-bezier(0.23, 1, 0.32, 1),
+              opacity .2s ease, visibility .2s ease;
   visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+
+  /* Capa por debajo de toolbar, por encima del 3D/backdrops ligeros */
+  z-index: 40;
 }
 
 .designs-panel-modern.is-open {
   transform: translateX(0);
   visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  /* Panel abierto: por encima de toolbar si se solapa, pero
+     idealmente no debería solaparse gracias a --ui-safe-top.
+     Si preferís que NUNCA pase por encima de la toolbar, baja a 50. */
+  z-index: 60;
 }
 
+/* =========================
+   Header
+========================= */
 .dp-header {
   padding: 14px 16px;
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  border-bottom: 1px solid var(--dp-br);
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(6px);
-  position: relative;
-  z-index: 10;
+  position: sticky;
+  top: 0;
+  z-index: 10; /* por encima del scroll del body */
 }
+
 .dp-header h3 {
   font-size: 16px;
   font-weight: 600;
   margin: 0;
+  color: var(--dp-text);
 }
+
 .dp-close-btn {
-  background: var(--pill-bg, #f3f4f6);
-  border: 1px solid var(--pill-br, #e5e7eb);
-  color: var(--text-secondary, #6b7280);
+  background: var(--dp-pill-bg);
+  border: 1px solid var(--dp-pill-br);
+  color: var(--dp-text-2);
   width: 28px;
   height: 28px;
   border-radius: 50%;
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
-}
-.dp-close-btn:hover {
-  background: #e5e7eb;
-  color: var(--text-primary, #111827);
+  transition: transform .15s ease, background .2s ease, color .2s ease;
 }
 
+.dp-close-btn:hover {
+  background: #e5e7eb;
+  color: var(--dp-text);
+}
+.dp-close-btn:active {
+  transform: scale(0.96);
+}
+
+/* =========================
+   Body / scrollable
+========================= */
 .dp-body {
   padding: 16px;
   display: flex;
@@ -76,22 +129,88 @@
 
 .dp-empty-small {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--dp-text-2);
   padding: 24px 0;
   text-align: center;
 }
 
-/* Estilos de la grilla de diseños (de index.css) */
+/* =========================
+   Grid de diseños (desktop)
+========================= */
 .design-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 16px;
 }
 
+.design-thumb-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+  background: #fff;
+  border: 1px solid var(--dp-br);
+  border-radius: 12px;
+  padding: 8px;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease;
+  user-select: none;
+}
 
-/* Estilos Responsive para Móvil */
+.design-thumb-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(2,6,23,.06);
+  border-color: #d9dee7;
+}
+
+.design-thumb-btn:active {
+  transform: translateY(0);
+}
+
+.design-thumb {
+  width: 100%;
+  aspect-ratio: 4/3; /* asegura proporción sin deformar */
+  object-fit: cover;
+  border-radius: 8px;
+  background: #f8fafc;
+  display: block;
+}
+
+.design-name {
+  font-size: 12px;
+  color: var(--dp-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Estado seleccionado (opcional) */
+.design-thumb-btn.is-selected {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, .15) inset;
+}
+
+/* =========================
+   Backdrop opcional del panel
+   (transparente: no bloquea 3D ni UI)
+========================= */
+.dp-backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  pointer-events: none; /* no bloquea nada */
+  z-index: 40;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+.dp-backdrop.is-open {
+  opacity: 1;
+}
+
+/* =========================
+   Responsive / móvil (bottom sheet)
+========================= */
 @media (max-width: 768px) {
-  
   .designs-panel-modern {
     width: 100%;
     height: auto;
@@ -104,22 +223,31 @@
     border: none;
     box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
     transform: translateY(100%);
+    /* al cerrar: */
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 40;
   }
-  
+
   .designs-panel-modern.is-open {
     transform: translateY(0);
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 60;
   }
 
   .dp-header {
     padding-top: 12px;
   }
-  
+
   .dp-header::before {
     content: '';
     display: block;
     width: 48px;
     height: 5px;
-    background: var(--border, #e5e7eb);
+    background: var(--dp-br);
     border-radius: 3px;
     position: absolute;
     top: 6px;
@@ -134,31 +262,39 @@
   .dp-body {
     padding-bottom: 32px;
   }
-  
-  /* * 🟢 ARREGLO: 
-   * Estilos de scroll horizontal para la grilla en móvil 
-  */
+
+  /* En móvil la parrilla pasa a carrusel horizontal */
   .design-grid {
     display: flex;
     flex-wrap: nowrap;
     overflow-x: auto;
     gap: 12px;
-    padding: 4px; /* Pequeño padding para que se vea bien */
+    padding: 4px;
     margin: 0 -4px;
-    grid-template-columns: none; /* Anula el grid */
+    grid-template-columns: none; /* anula grid */
     -webkit-overflow-scrolling: touch;
-    scrollbar-height: thin;
+    scrollbar-width: thin;
   }
-   
-  .dp-body .design-thumb-btn { /* Target más específico */
-    width: 90px;
-    flex-shrink: 0;
+
+  .dp-body .design-thumb-btn {
+    width: 96px;
+    flex: 0 0 auto;
   }
-   
+
   .dp-body .design-thumb {
-    /* 🟢 ARREGLO: aspect-ratio también aquí */
-    aspect-ratio: 4 / 3;
-    height: auto; /* Dejamos que aspect-ratio mande */
+    aspect-ratio: 4/3;
+    height: auto;
   }
 }
 
+/* =========================
+   Accesibilidad / motion
+========================= */
+@media (prefers-reduced-motion: reduce) {
+  .designs-panel-modern {
+    transition: none;
+  }
+  .design-thumb-btn {
+    transition: none;
+  }
+}
