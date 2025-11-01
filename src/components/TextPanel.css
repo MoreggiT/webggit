@@ -30,14 +30,12 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: var(--tp-text-primary);
   
-  /* 🟢 CAMBIO: Transición y estado oculto por defecto */
-  transform: translateX(calc(100% + 24px)); /* Oculto fuera de la pantalla a la derecha */
+  transform: translateX(calc(100% + 24px));
   transition: transform 0.35s cubic-bezier(0.23, 1, 0.32, 1);
-  visibility: hidden; /* Oculta el panel para que no se pueda tabular */
+  visibility: hidden;
 }
 
 .text-panel-modern.is-open {
-  /* 🟢 CAMBIO: Estado visible */
   transform: translateX(0);
   visibility: visible;
 }
@@ -52,7 +50,6 @@
   justify-content: space-between;
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(6px);
-  /* Corregir un posible bug de z-index en Safari */
   position: relative;
   z-index: 10;
 }
@@ -62,14 +59,15 @@
   margin: 0;
 }
 .tp-close-btn {
+  /* MEJORA: Aumentamos el tamaño del objetivo táctil del botón de cerrar */
+  width: 36px; 
+  height: 36px;
   background: var(--tp-input-bg);
   border: 1px solid var(--tp-input-border);
   color: var(--tp-text-secondary);
-  width: 28px;
-  height: 28px;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 18px; /* Ligeramente más grande */
   line-height: 1;
   display: flex;
   align-items: center;
@@ -89,7 +87,6 @@
   gap: 20px;
   overflow-y: auto;
   flex-grow: 1;
-  /* Para iOS */
   -webkit-overflow-scrolling: touch;
 }
 .tp-section {
@@ -132,11 +129,12 @@
   background: var(--tp-input-bg);
   border: 1px solid var(--tp-input-border);
   border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 14px;
+  /* MEJORA: Aumentamos padding para mejor pulsación táctil */
+  padding: 12px; 
+  font-size: 15px;
   color: var(--tp-text-primary);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  box-sizing: border-box; /* Añadido para consistencia */
+  box-sizing: border-box;
 }
 .tp-textarea:focus,
 .tp-select:focus,
@@ -153,15 +151,15 @@
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  width: 40px;
-  height: 40px;
+  width: 44px; /* Ligeramente más grande */
+  height: 44px; /* Ligeramente más grande */
   padding: 0;
   border: none;
   border-radius: 8px;
   background: none;
   cursor: pointer;
   border: 1px solid var(--tp-input-border);
-  flex-shrink: 0; /* Para que no se encoja */
+  flex-shrink: 0;
 }
 .tp-color-picker::-webkit-color-swatch {
   border-radius: 7px;
@@ -177,9 +175,9 @@
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 6px;
+  height: 8px; /* Ligeramente más ancho */
   background: var(--tp-input-bg);
-  border-radius: 3px;
+  border-radius: 4px; /* Ajuste por altura */
   outline: none;
   opacity: 0.9;
   transition: opacity 0.2s;
@@ -190,39 +188,39 @@
 .tp-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 20px; /* Más grande para táctil */
+  height: 20px; /* Más grande para táctil */
   background: var(--tp-accent);
   border-radius: 50%;
   cursor: pointer;
-  border: 3px solid var(--tp-bg);
+  border: 4px solid var(--tp-bg); /* Borde más grueso */
   box-shadow: 0 0 2px rgba(0,0,0,0.2);
 }
 .tp-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   background: var(--tp-accent);
   border-radius: 50%;
   cursor: pointer;
-  border: 3px solid var(--tp-bg);
+  border: 4px solid var(--tp-bg);
   box-shadow: 0 0 2px rgba(0,0,0,0.2);
 }
 .tp-value-label {
-  font-size: 12px;
+  font-size: 13px; /* Ligeramente más grande */
   color: var(--tp-text-secondary);
-  min-width: 32px;
+  min-width: 36px;
   text-align: right;
   flex-shrink: 0;
 }
 .tp-label-icon {
-  font-size: 14px;
+  font-size: 16px; /* Ligeramente más grande */
   color: var(--tp-text-primary);
   font-weight: 500;
   min-width: 40px;
   flex-shrink: 0;
 }
 
-/* --- Grupo de Botones --- */
+/* --- Grupo de Botones (Toggle buttons) --- */
 .tp-btn-group {
   display: flex;
   width: 100%;
@@ -232,40 +230,20 @@
   background: var(--tp-input-bg);
   border: 1px solid var(--tp-input-border);
   color: var(--tp-text-secondary);
-  padding: 8px 10px;
+  padding: 10px 10px; /* Aumentamos el padding vertical para táctil */
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
-  -webkit-tap-highlight-color: transparent; /* Quita flash azul en iOS */
-}
-.tp-btn:hover {
-  background: #e5e7eb;
-  color: var(--tp-text-primary);
-}
-.tp-btn.active {
-  background: var(--tp-accent);
-  color: #fff;
-  border-color: var(--tp-accent);
-  z-index: 1;
-}
-.tp-btn:first-child {
-  border-radius: 8px 0 0 8px;
-}
-.tp-btn:last-child {
-  border-radius: 0 8px 8px 0;
-}
-.tp-btn:not(:first-child) {
-  margin-left: -1px;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* --- Footer --- */
 .tp-footer {
   padding: 16px;
   border-top: 1px solid var(--tp-border);
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.9); /* Más opaco para el fondo */
   backdrop-filter: blur(6px);
-  /* Corregir un posible bug de z-index en Safari */
   position: relative;
   z-index: 10;
 }
@@ -274,97 +252,60 @@
   background: var(--tp-accent);
   color: #fff;
   border: none;
-  border-radius: 8px;
-  padding: 12px;
-  font-size: 15px;
+  border-radius: 10px; /* Ligeramente más redondeado */
+  padding: 14px; /* Más padding para un botón principal más grande */
+  font-size: 16px; /* Ligeramente más grande */
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s ease;
   -webkit-tap-highlight-color: transparent;
 }
-.tp-btn-primary:hover {
-  background: #1d4ed8;
-}
-.tp-btn-primary:disabled {
-  background: var(--tp-input-bg);
-  color: var(--tp-text-secondary);
-  cursor: not-allowed;
-}
-.tp-edit-note {
-  font-size: 13px;
-  color: var(--tp-text-secondary);
-  text-align: center;
-  margin: 0;
-  padding: 6px 0;
-}
 
 
 /*
  * =========================================
- * 🟢 NUEVO: DISEÑO RESPONSIVE PARA MÓVILES
+ * 🟢 DISEÑO RESPONSIVE PARA MÓVILES (Bottom Sheet)
  * =========================================
 */
 
 @media (max-width: 768px) {
   
   .text-panel-modern {
-    /* --- Estilos de Móvil (Bottom Sheet) --- */
-    width: 100%;
-    height: auto; /* La altura la da el contenido */
-    max-height: 70vh; /* Máximo 70% de la altura de la pantalla */
+    /* Mantenemos tus estilos de Bottom Sheet, pero aumentamos max-height */
+    max-height: 85vh; /* Puede ocupar más para campos largos */
     
-    /* Posicionamiento */
-    bottom: 0; /* Pegado abajo */
-    top: auto;   /* Des-fijar de arriba */
-    left: 0;
-    right: 0;
-    
-    /* Apariencia */
-    border-radius: 20px 20px 0 0; /* Bordes redondeados solo arriba */
+    /* El borde superior para móvil es más limpio sin un borde fino */
     border: none;
-    box-shadow: 0 -4px 20px rgba(0,0,0,0.12); /* Sombra superior */
-    
-    /* 🟢 CAMBIO: Estado oculto por defecto (abajo) */
-    transform: translateY(100%);
-    /* La transición ya está definida arriba */
   }
   
-  .text-panel-modern.is-open {
-    /* 🟢 CAMBIO: Estado visible */
-    transform: translateY(0);
-  }
-
   .tp-header {
-    /* Añadimos un "tirador" para indicar que es deslizable */
-    padding-top: 12px;
-    position: relative;
+    padding-top: 16px; /* Más padding en la parte superior para el "tirador" */
+    padding-bottom: 8px; 
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
   }
   
   .tp-header::before {
-    content: '';
-    display: block;
-    width: 48px;
-    height: 5px;
-    background: var(--tp-border);
-    border-radius: 3px;
-    position: absolute;
-    top: 6px;
-    left: 50%;
-    transform: translateX(-50%);
-  }
-
-  .tp-header h3 {
-    margin-top: 10px; /* Espacio para el tirador */
+    /* Mantenemos el tirador visual */
+    top: 8px;
+    background: var(--tp-input-border);
   }
 
   .tp-body {
-    padding-bottom: 32px; /* Más espacio abajo por si acaso */
+    padding: 16px;
+    padding-bottom: 24px; /* Espacio extra al final del contenido scrolleable */
   }
 
   .tp-footer {
-    /* Asegurarnos que el padding del footer respete la "safe area" de iOS */
+    /* Ajuste crítico para respetar el área segura y evitar que el botón
+       quede oculto por la barra de inicio de iOS/Android */
     padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    /* Eliminamos el borde superior para que se mezcle con el fondo de la safe area */
+    border-top: none;
   }
   
+  .tp-edit-note {
+    /* Más espacio para la nota debajo del botón */
+    padding: 8px 0;
+  }
 }
-

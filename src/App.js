@@ -12,11 +12,10 @@ import TextPanel from "./components/TextPanel";
 import BottomNav from "./components/BottomNav";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 
-// ==================================================================
-// --- NUEVAS IMPORTACIONES DE COMPONENTES EXTERNOS ---
-// ==================================================================
+// --- COMPONENTES EXTERNOS REFRACTORIZADOS ---
 import DesignsPanel from "./components/DesignsPanel";
 import ColorsPanel from "./components/ColorsPanel";
+// ------------------------------------------
 
 /* ========== helpers de nombres ========== */
 const stripAccents = (s) =>
@@ -125,13 +124,7 @@ const currentHexFor = (piece, o) =>
     "#000000"
   ).toUpperCase();
 
-// ==================================================================
-// --- EL COMPONENTE DesignThumbBtn HA SIDO ELIMINADO DE AQUÍ ---
-// --- AHORA SE IMPORTA DESDE SU PROPIO ARCHIVO EN DesignsPanel.jsx ---
-// ==================================================================
-
-
-/* ========== Popover de color ========== */
+/* ========== Popover de color (Se mantiene en App.js porque usa muchos estados) ========== */
 function ColorPopover({ anchorRect, onPick, onClose, palette }) {
   const ref = React.useRef(null);
   const [pos, setPos] = useState({
@@ -907,59 +900,50 @@ export default function App() {
     }
   };
 
-  // ==================================================================
-  // --- COMPONENTES DE SECCIONES REFACTORIZADOS ---
-  // --- Las definiciones de DesignsSection y ColorsSection se han eliminado. ---
-  // --- Ahora se usan los componentes externos DesignsPanel y ColorsPanel. ---
-  // ==================================================================
-
+  // --- MINICOMPONENTE DE ESTATUS ---
   const StatusSection = () => (
-    <section className="sec" style={{ marginTop: 0 }}>
+    <section className="sec" style={{ marginTop: 0, padding: isMobile ? '8px 16px' : '20px 24px' }}>
       <div className="small" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <span>{status}</span>
-        <div className="progress" style={{ width: 160 }}>
+        <div className="progress" style={{ width: isMobile ? 120 : 160 }}>
           <span style={{ width: `${progress}%` }} />
         </div>
       </div>
     </section>
   );
 
-  const SidebarContent = () => (
-    <>
-      <StatusSection />
-      <DesignsPanel
-        isMobile={false}
-        selectedCat={selectedCat}
-        hasModel={hasModel}
-        designList={designList}
-        designThumbs={designThumbs}
-        handleSelectDesign={handleSelectDesign}
-        ensureDesignThumb={ensureDesignThumb}
-      />
-      <ColorsPanel
-        isMobile={false}
-        editMode={editMode}
-        setEditMode={setEditMode}
-        selectedDesign={selectedDesign}
-        globalLayers={globalLayers}
-        visiblePieces={visiblePieces}
-        selectedKey={selectedKey}
-        togglePiece={togglePiece}
-        openPaletteForLayer={openPaletteForLayer}
-        currentHexFor={currentHexFor}
-      />
-    </>
-  );
-
-
   return (
     <div className={`app ${isMobile ? "is-mobile" : "is-desktop"}`}>
+
+      {/* --- BARRA LATERAL (SOLO ESCRITORIO) --- */}
       {!isMobile && (
         <aside id="ui" className="sidebar">
-          <SidebarContent />
+            <StatusSection />
+            <DesignsPanel
+                isMobile={false}
+                selectedCat={selectedCat}
+                hasModel={hasModel}
+                designList={designList}
+                designThumbs={designThumbs}
+                handleSelectDesign={handleSelectDesign}
+                ensureDesignThumb={ensureDesignThumb}
+            />
+            <ColorsPanel
+                isMobile={false}
+                editMode={editMode}
+                setEditMode={setEditMode}
+                selectedDesign={selectedDesign}
+                globalLayers={globalLayers}
+                visiblePieces={visiblePieces}
+                selectedKey={selectedKey}
+                togglePiece={togglePiece}
+                openPaletteForLayer={openPaletteForLayer}
+                currentHexFor={currentHexFor}
+            />
         </aside>
       )}
 
+      {/* --- VISOR 3D Y ELEMENTOS ASOCIADOS --- */}
       <main id="view" className="viewport">
         <div className="top-controls">
           <button className="icon-btn" onClick={handleOpenPreview} disabled={!hasModel || isGeneratingPreview} title="Descargar boceto">
@@ -1006,6 +990,7 @@ export default function App() {
           />
         )}
 
+        {/* Galerías de Modelos/Categorías (siguen siendo modales/overlays) */}
         <ModelGallery
           open={categoryGalleryOpen}
           isCategoryGallery={true}
@@ -1029,39 +1014,46 @@ export default function App() {
         />
       </main>
 
-      {/* --- PANELES FLOTANTES (SOLO MÓVIL) --- */}
-      {/* --- AHORA SE USAN LOS COMPONENTES EXTERNOS --- */}
+      {/* --- ÁREA DE PANELES MÓVILES (Slot que empuja el 3D) --- */}
       {isMobile && (
-        <>
-         <StatusSection />
-         <DesignsPanel
-            isMobile={true}
-            open={mobilePanel === 'designs'}
-            onClose={() => setMobilePanel(null)}
-            selectedCat={selectedCat}
-            hasModel={hasModel}
-            designList={designList}
-            designThumbs={designThumbs}
-            handleSelectDesign={handleSelectDesign}
-            ensureDesignThumb={ensureDesignThumb}
+        // Se usa la clase 'is-open' para controlar la altura del slot con CSS
+        <div className={`mobile-panel-slot ${mobilePanel && mobilePanel !== 'molds' && mobilePanel !== 'text' ? 'is-open' : ''}`}>
+          
+          {/* Status: solo si hay un panel de Diseños o Colores abierto */}
+          {(mobilePanel === 'designs' || mobilePanel === 'colors') && <StatusSection />}
+          
+          {/* DesignsPanel para móvil (usa la prop 'open' para controlar su contenido) */}
+          <DesignsPanel
+              isMobile={true}
+              open={mobilePanel === 'designs'} 
+              onClose={() => setMobilePanel(null)}
+              selectedCat={selectedCat}
+              hasModel={hasModel}
+              designList={designList}
+              designThumbs={designThumbs}
+              handleSelectDesign={handleSelectDesign}
+              ensureDesignThumb={ensureDesignThumb}
           />
+
+          {/* ColorsPanel para móvil (usa la prop 'open' para controlar su contenido) */}
           <ColorsPanel
-            isMobile={true}
-            open={mobilePanel === 'colors'}
-            onClose={() => setMobilePanel(null)}
-            editMode={editMode}
-            setEditMode={setEditMode}
-            selectedDesign={selectedDesign}
-            globalLayers={globalLayers}
-            visiblePieces={visiblePieces}
-            selectedKey={selectedKey}
-            togglePiece={togglePiece}
-            openPaletteForLayer={openPaletteForLayer}
-            currentHexFor={currentHexFor}
+              isMobile={true}
+              open={mobilePanel === 'colors'}
+              onClose={() => setMobilePanel(null)}
+              editMode={editMode}
+              setEditMode={setEditMode}
+              selectedDesign={selectedDesign}
+              globalLayers={globalLayers}
+              visiblePieces={visiblePieces}
+              selectedKey={selectedKey}
+              togglePiece={togglePiece}
+              openPaletteForLayer={openPaletteForLayer}
+              currentHexFor={currentHexFor}
           />
-        </>
+        </div>
       )}
 
+      {/* --- NAVEGACIÓN INFERIOR (SOLO MÓVIL) --- */}
       {isMobile && <BottomNav activePanel={mobilePanel} onPanelChange={handleMobilePanelChange} />}
 
       {/* --- MODALES Y POPOVERS GLOBALES --- */}
@@ -1081,6 +1073,7 @@ export default function App() {
           }}
         />
       )}
+      {/* El TextPanel es el único overlay aquí */}
       <TextPanel
         open={textPanelOpen && (!isMobile || (isMobile && mobilePanel === 'text'))}
         onClose={handleCloseTextPanel}
