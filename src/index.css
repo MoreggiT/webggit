@@ -124,6 +124,9 @@ body {
 }
 .design-thumb-btn {
   cursor: pointer;
+  background: transparent;
+  border: 0;
+  padding: 0;
 }
 .design-thumb {
   height: 80px;
@@ -161,10 +164,10 @@ body {
   margin-top: 8px;
   text-align: center;
   font-weight: 500;
-  /* Evita que el texto se parta en dos líneas */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: inherit;
 }
 
 /* Panel de colores */
@@ -242,6 +245,9 @@ body {
   cursor: pointer;
   text-align: left;
   transition: all 0.2s;
+  color: inherit;
+  font-size: inherit;
+  font-family: inherit;
 }
 .layer-row:hover, .piece-toggle:hover {
   background: var(--bg-light);
@@ -323,126 +329,114 @@ body {
 /* ========================= ESTILOS MÓVIL ========================== */
 /* ================================================================== */
 
+/* --- NUEVO LAYOUT MÓVIL (ESTRUCTURA FLEX) --- */
+/* Esta sección reemplaza por completo el sistema de paneles flotantes */
+
 .app.is-mobile {
   flex-direction: column;
+  /* Usamos dvh para una altura más precisa en móviles modernos */
+  height: 100vh;
+  height: 100dvh; 
 }
 
+/* 1. El visor 3D ahora es un elemento flexible que puede encogerse */
 .app.is-mobile main.viewport {
-  /* Espacio para la barra de navegación inferior */
-  padding-bottom: 64px; 
+  flex-grow: 1; /* Ocupa todo el espacio vertical disponible */
+  flex-shrink: 1; /* Permite que se encoja cuando el panel aparece */
+  min-height: 200px; /* Altura mínima para que no desaparezca */
+  /* Ya no necesita padding-bottom, el layout se gestiona con flexbox */
 }
 
-/* Contenedor de paneles móviles flotantes */
-.mobile-panel-container {
-  position: fixed;
-  inset: 0;
-  z-index: 999;
-  pointer-events: none; /* No bloquear clics por defecto */
-}
-
-.mobile-panel-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  animation: mobileFadeIn 0.3s ease;
-  pointer-events: auto; /* El fondo sí se puede cliquear para cerrar */
-}
-
-.sidebar.is-mobile-panel {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  pointer-events: auto; /* El panel es interactivo */
-  
-  /* ***** CAMBIO PRINCIPAL ***** */
-  /* Ya no ocupa 75vh, sino una altura más controlada */
-  height: auto;
-  max-height: 320px; 
-  /* **************************** */
-
-  border-right: 0;
+/* 2. El NUEVO contenedor para los paneles (el "slot" del medio) */
+.mobile-panel-slot {
+  flex-shrink: 0; /* No se encoge */
+  background-color: #ffffff;
   border-top: 1px solid var(--border);
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
-  animation: mobileSlideInUp 0.3s ease;
-  /* Espacio para la barra de nav y el notch si el panel es muy alto */
-  padding-bottom: calc(64px + env(safe-area-inset-bottom));
-  /* Para un scroll suave en móvil */
+  /* Limitamos su altura máxima y permitimos scroll interno si es necesario */
+  max-height: 40%; 
+  overflow-y: auto;
+  transition: max-height 0.3s ease-in-out;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: #d1d5db transparent;
+}
+/* Con este selector, el panel no ocupa espacio si está vacío */
+.mobile-panel-slot:empty {
+  display: none;
 }
 
-/* --- NUEVOS ESTILOS PARA EL SCROLL HORIZONTAL DE DISEÑOS --- */
+/* 3. La barra de navegación inferior (BottomNav) */
+.app.is-mobile .bottom-nav {
+  flex-shrink: 0; /* No se encoge, mantiene su altura */
+  position: relative; /* O static, para que forme parte del flujo normal */
+  z-index: 1000; /* Se mantiene sobre otros elementos si es necesario */
+}
+
+/* --- ESTILOS ANTIGUOS ELIMINADOS --- */
+/* Se han eliminado las clases .mobile-panel-container, .mobile-panel-backdrop, 
+   y los estilos de posicionamiento (position: absolute, bottom: 0, etc.) 
+   de .sidebar.is-mobile-panel, ya que los paneles ya no son un overlay. */
+/* También se han eliminado las animaciones @keyframes mobileFadeIn y mobileSlideInUp */
+
+
+/* --- ESTILOS DE CONTENIDO MÓVIL (Estos se mantienen y se adaptan) --- */
 @media (max-width: 780px) {
-  .sidebar.is-mobile-panel .sec {
+  /* Usamos el nuevo contenedor .mobile-panel-slot como selector padre */
+  .mobile-panel-slot .sec {
     padding: 16px; /* Menos padding en móvil */
+    border-bottom: none; /* Ya no hay múltiples secciones apiladas */
   }
-  .sidebar.is-mobile-panel .sec h3 {
+  .mobile-panel-slot .sec h3 {
     margin-bottom: 12px;
   }
   
-  /* Así se vuelve "lineal" y no se "deforma" */
+  /* El scroll horizontal de diseños se mantiene igual, es una buena UX */
   .design-grid {
     display: flex;
     flex-wrap: nowrap;
     overflow-x: auto;
     gap: 12px;
-    padding: 4px 16px 12px 16px; /* Padding para que se vea el scroll */
+    padding: 4px 16px 12px 16px; 
     margin: 0 -16px; /* Compensa el padding de .sec */
-    grid-template-columns: none; /* Anula el grid */
-    -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
-    scrollbar-height: thin;
+    grid-template-columns: none;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Oculta la barra de scroll en navegadores que lo soportan */
+  }
+  .design-grid::-webkit-scrollbar {
+    display: none; /* Oculta la barra de scroll en Webkit (Chrome, Safari) */
   }
   
   .design-thumb-btn {
-    width: 90px;      /* Ancho fijo */
-    flex-shrink: 0;   /* Evita que se encoja */
+    width: 90px;
+    flex-shrink: 0;
   }
   
   .design-thumb {
-    height: 70px;     /* Altura fija */
+    height: 70px;
   }
 
-  /* --- MEJORAS AL PANEL DE COLORES MÓVIL --- */
-  .colorhub .objpane.flat {
-    /* Limita la altura de la lista de colores y la hace scrolleable */
+  /* El panel de colores se mantiene, ya que se adapta bien al espacio limitado */
+  .mobile-panel-slot .colorhub .objpane.flat {
     max-height: 200px; 
     overflow-y: auto;
-    padding-right: 8px; /* Espacio para la barra de scroll */
+    padding-right: 8px;
   }
 
-  .colorhub__header {
-    flex-direction: column; /* Apila el título y el toggle */
+  .mobile-panel-slot .colorhub__header {
+    flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
-  .colorhub__title {
+  .mobile-panel-slot .colorhub__title {
     gap: 8px;
   }
-  .colorhub__title .emoji {
+  .mobile-panel-slot .colorhub__title .emoji {
     font-size: 1.25rem;
   }
-  .chip {
+  .mobile-panel-slot .chip {
     width: 100%;
   }
-  .chip .btn {
-    flex-grow: 1; /* Hace que los botones "General" y "Por Pieza" ocupen 50% */
+  .mobile-panel-slot .chip .btn {
+    flex-grow: 1;
     text-align: center;
   }
 }
 /* --- FIN DE ESTILOS MÓVIL --- */
-
-
-@keyframes mobileFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes mobileSlideInUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
