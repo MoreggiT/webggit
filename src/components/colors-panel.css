@@ -1,21 +1,12 @@
 /* src/components/colors-panel.css
-   Panel de Colores (modernizado y con capas seguras)
-   - Respeta toolbar/top-controls con --ui-safe-top
-   - No bloquea el 3D ni botones cuando está cerrado
-   - Solo capta clics cuando .is-open
-   - Z-index alineado con stack seguro (40 cerrado / 60 abierto)
+   Panel de Colores (capas seguras + safe bottom + mejor móvil)
 */
 
-/* =========================
-   Variables locales del panel
-========================= */
 :root{
-  /* Altura segura para que el panel no tape tus botones superiores.
-     Ajusta este valor según tu toolbar real. */
   --ui-safe-top: 64px;
-  --cp-width: 320px;
+  --ui-safe-bottom: 72px;
 
-  /* Tokens de color (fallbacks incluidos) */
+  --cp-width: 320px;
   --cp-bg: var(--card, #ffffff);
   --cp-br: var(--border, #e5e7eb);
   --cp-text: var(--text-primary, #111827);
@@ -23,355 +14,154 @@
   --cp-pill-bg: var(--pill-bg, #f3f4f6);
   --cp-pill-br: var(--pill-br, #e5e7eb);
   --cp-shadow: var(--shadow, 0 12px 40px rgba(2,6,23,.18));
+
+  --z-panel: 1300;
+  --z-panel-closed: 900;
 }
 
-/* =========================
-   Contenedor principal
-========================= */
+/* Contenedor */
 .colors-panel-modern {
   position: fixed;
   right: 12px;
-  top: var(--ui-safe-top);   /* 👈 evita tapar la botonera superior */
-  bottom: 12px;
+  top: var(--ui-safe-top);
+  bottom: calc(12px + var(--ui-safe-bottom));
   width: var(--cp-width);
   background: var(--cp-bg);
   border: 1px solid var(--cp-br);
   border-radius: 16px;
   box-shadow: var(--cp-shadow);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  display: flex; flex-direction: column; overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: var(--cp-text);
 
-  /* Estado cerrado: fuera de vista, no capta eventos */
   transform: translateX(calc(100% + 24px));
-  transition: transform 0.35s cubic-bezier(0.23, 1, 0.32, 1),
+  transition: transform .35s cubic-bezier(0.23, 1, 0.32, 1),
               opacity .2s ease, visibility .2s ease;
-  visibility: hidden;
-  opacity: 0;
-  pointer-events: none;
+  visibility: hidden; opacity: 0; pointer-events: none;
 
-  /* Capa por debajo de toolbar, por encima del 3D/backdrops ligeros */
-  z-index: 40;
+  z-index: var(--z-panel-closed);
 }
-
 .colors-panel-modern.is-open {
   transform: translateX(0);
-  visibility: visible;
-  opacity: 1;
-  pointer-events: auto;
-  /* Si preferís que NUNCA pase por encima de la toolbar, baja a 50
-     y asegurá el espacio con --ui-safe-top. */
-  z-index: 60;
+  visibility: visible; opacity: 1; pointer-events: auto;
+  z-index: var(--z-panel);
 }
 
-/* =========================
-   Header
-========================= */
+/* Header */
 .cp-header {
   padding: 14px 16px;
   border-bottom: 1px solid var(--cp-br);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between;
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(6px);
-  position: sticky;
-  top: 0;
-  z-index: 10; /* por encima del scroll del body */
+  position: sticky; top: 0; z-index: 2;
 }
-
-.cp-header h3 {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 0;
-  color: var(--cp-text);
-}
+.cp-header h3 { font-size: 16px; font-weight: 600; margin: 0; color: var(--cp-text); }
 
 .cp-close-btn {
-  background: var(--cp-pill-bg);
-  border: 1px solid var(--cp-pill-br);
-  color: var(--cp-text-2);
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  background: var(--cp-pill-bg); border: 1px solid var(--cp-pill-br);
+  color: var(--cp-text-2); width: 28px; height: 28px; border-radius: 50%;
+  cursor: pointer; font-size: 16px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
   transition: transform .15s ease, background .2s ease, color .2s ease;
 }
-.cp-close-btn:hover {
-  background: #e5e7eb;
-  color: var(--cp-text);
-}
-.cp-close-btn:active {
-  transform: scale(0.96);
-}
+.cp-close-btn:hover { background: #e5e7eb; color: var(--cp-text); }
+.cp-close-btn:active { transform: scale(0.96); }
 
-/* =========================
-   Body / scrollable
-========================= */
+/* Body */
 .cp-body {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px; /* Ajustado */
-  overflow-y: auto;
-  flex-grow: 1;
-  -webkit-overflow-scrolling: touch;
+  padding: 16px; display: flex; flex-direction: column; gap: 16px;
+  overflow-y: auto; flex-grow: 1; -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom) + var(--ui-safe-bottom));
 }
 
-.objpane-empty {
-  font-size: 0.9rem;
-  color: var(--cp-text-2);
-  padding: 24px 0;
-  text-align: center;
-}
-.objpane-empty.big {
-  font-size: 1rem;
-}
+.objpane-empty { font-size: .9rem; color: var(--cp-text-2); padding: 24px 0; text-align: center; }
+.objpane-empty.big { font-size: 1rem; }
 
-/* =========================
-   ColorHub (pestañas / switches)
-========================= */
-.colorhub.compact .chip {
-  transform: scale(0.9);
-}
-.colorhub__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.colorhub__title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.colorhub__title .emoji {
-  font-size: 1.5rem;
-}
-.colorhub__title .h1 {
-  font-weight: 600;
-}
-.colorhub__title .sub {
-  font-size: 0.8rem;
-  color: var(--cp-text-2);
-}
+/* ColorHub */
+.colorhub.compact .chip { transform: scale(0.9); }
+.colorhub__header { display: flex; align-items: center; justify-content: space-between; }
+.colorhub__title { display: flex; align-items: center; gap: 12px; }
+.colorhub__title .emoji { font-size: 1.5rem; }
+.colorhub__title .h1 { font-weight: 600; }
+.colorhub__title .sub { font-size: .8rem; color: var(--cp-text-2); }
 
-.chip {
-  display: flex;
-  background: var(--cp-pill-bg);
-  border-radius: 8px;
-  padding: 4px;
-  border: 1px solid var(--cp-br);
-}
-.chip .btn {
-  font-size: 0.8rem;
-  padding: 4px 12px;
-  border: 0;
-  background: transparent;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.chip .btn[aria-pressed="true"] {
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  font-weight: 500;
-}
+.chip { display: flex; background: var(--cp-pill-bg); border-radius: 8px; padding: 4px; border: 1px solid var(--cp-br); }
+.chip .btn { font-size: .8rem; padding: 4px 12px; border: 0; background: transparent; border-radius: 6px; cursor: pointer; }
+.chip .btn[aria-pressed="true"] { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: 500; }
 
-/* =========================
-   Lista de capas / piezas
-========================= */
-.layer-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+/* Lista de capas / piezas */
+.layer-list { display: flex; flex-direction: column; gap: 8px; }
 
-.layer-row,
-.piece-toggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  text-align: left;
+.layer-row, .piece-toggle {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 10px; background: transparent; border: 1px solid transparent;
+  border-radius: 8px; cursor: pointer; text-align: left;
   transition: background .2s ease, border-color .2s ease, transform .12s ease;
 }
+.layer-row:hover, .piece-toggle:hover { background: var(--cp-pill-bg); border-color: var(--cp-br); }
+.layer-row:active, .piece-toggle:active { transform: translateY(0); }
 
-.layer-row:hover,
-.piece-toggle:hover {
-  background: var(--cp-pill-bg);
-  border-color: var(--cp-br);
-}
+.row-left { display: flex; align-items: center; gap: 12px; }
+.swatch-lg { width: 24px; height: 24px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.1); box-shadow: inset 0 0 0 2px rgba(255,255,255,.6); }
+.layer-name { font-weight: 500; color: var(--cp-text); }
+.row-hex { font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace); font-size: .85rem; color: var(--cp-text-2); }
 
-.layer-row:active,
-.piece-toggle:active {
-  transform: translateY(0);
-}
+.piece-toggle { background: #f9fafb; border-color: var(--cp-br); }
+.piece-toggle__name { font-weight: 600; }
+.chev { color: #9ca3af; }
 
-.row-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.swatch-lg {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 1px solid rgba(0,0,0,0.1);
-  box-shadow: inset 0 0 0 2px rgba(255,255,255,.6);
-}
-
-.layer-name {
-  font-weight: 500;
-  color: var(--cp-text);
-}
-
-.row-hex {
-  font-family: var(--mono, "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace);
-  font-size: 0.85rem;
-  color: var(--cp-text-2);
-}
-
-.piece-toggle {
-  background: #f9fafb;
-  border-color: var(--cp-br);
-}
-.piece-toggle__name {
-  font-weight: 600;
-}
-.chev {
-  color: #9ca3af;
-}
-
-/* Estado seleccionado (opcional) */
-.layer-row.is-selected,
-.piece-toggle.is-selected {
+.layer-row.is-selected, .piece-toggle.is-selected {
   border-color: #2563eb;
   box-shadow: 0 0 0 2px rgba(37, 99, 235, .15) inset;
   background: #ffffff;
 }
 
-/* =========================
-   Backdrop opcional del panel
-   (transparente: no bloquea 3D ni UI)
-========================= */
+/* Backdrop (no bloquea) */
 .cp-backdrop {
-  position: fixed;
-  inset: 0;
-  background: transparent;
-  pointer-events: none; /* no bloquea nada */
-  z-index: 40;
-  opacity: 0;
-  transition: opacity .2s ease;
+  position: fixed; inset: 0; background: transparent; pointer-events: none;
+  z-index: var(--z-panel-closed); opacity: 0; transition: opacity .2s ease;
 }
-.cp-backdrop.is-open {
-  opacity: 1;
-}
+.cp-backdrop.is-open { opacity: 1; }
 
-/* =========================
-   Responsive / móvil (bottom sheet)
-========================= */
+/* Móvil */
 @media (max-width: 768px) {
   .colors-panel-modern {
-    width: 100%;
-    height: auto;
-    max-height: 70vh;
-    bottom: 0;
-    top: auto;
-    left: 0;
-    right: 0;
-    border-radius: 20px 20px 0 0;
-    border: none;
+    width: 100%; height: auto; max-height: 70vh;
+    bottom: var(--ui-safe-bottom);
+    top: auto; left: 0; right: 0;
+    border-radius: 20px 20px 0 0; border: none;
     box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
     transform: translateY(100%);
-
-    /* al cerrar: */
-    visibility: hidden;
-    opacity: 0;
-    pointer-events: none;
-    z-index: 40;
+    visibility: hidden; opacity: 0; pointer-events: none;
+    z-index: var(--z-panel-closed);
   }
-
   .colors-panel-modern.is-open {
     transform: translateY(0);
-    visibility: visible;
-    opacity: 1;
-    pointer-events: auto;
-    z-index: 60;
+    visibility: visible; opacity: 1; pointer-events: auto;
+    z-index: var(--z-panel);
   }
 
-  .cp-header {
-    padding-top: 12px;
-  }
-
+  .cp-header { padding-top: 16px; }
   .cp-header::before {
-    content: '';
-    display: block;
-    width: 48px;
-    height: 5px;
-    background: var(--cp-br);
-    border-radius: 3px;
-    position: absolute;
-    top: 6px;
-    left: 50%;
-    transform: translateX(-50%);
+    content: ''; display: block; width: 48px; height: 5px; background: var(--cp-br);
+    border-radius: 3px; position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
   }
-
-  .cp-header h3 {
-    margin-top: 10px;
-  }
+  .cp-header h3 { margin-top: 10px; }
 
   .cp-body {
-    padding-bottom: 32px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom) + var(--ui-safe-bottom));
   }
 
-  /* Mobile tweaks ColorHub */
-  .cp-body .colorhub__header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-  .cp-body .colorhub__title {
-    gap: 8px;
-  }
-  .cp-body .colorhub__title .emoji {
-    font-size: 1.25rem;
-  }
-  .cp-body .chip {
-    width: 100%;
-  }
-  .cp-body .chip .btn {
-    flex-grow: 1;
-    text-align: center;
-  }
-  .cp-body .objpane.flat {
-    /* Limita la altura de la lista y la hace scrolleable */
-    max-height: calc(70vh - 200px); /* Ajusta la altura máxima */
-    overflow-y: auto;
-    padding-right: 8px;
-  }
+  .cp-body .colorhub__header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .cp-body .colorhub__title { gap: 8px; }
+  .cp-body .colorhub__title .emoji { font-size: 1.25rem; }
+  .cp-body .chip { width: 100%; }
+  .cp-body .chip .btn { flex-grow: 1; text-align: center; }
+
+  .cp-body .objpane.flat { max-height: calc(70vh - 200px); overflow-y: auto; padding-right: 8px; }
 }
 
-/* =========================
-   Accesibilidad / motion
-========================= */
+/* Motion safe */
 @media (prefers-reduced-motion: reduce) {
-  .colors-panel-modern {
-    transition: none;
-  }
-  .layer-row,
-  .piece-toggle {
-    transition: none;
-  }
+  .colors-panel-modern, .layer-row, .piece-toggle { transition: none !important; }
 }

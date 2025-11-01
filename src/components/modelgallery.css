@@ -3,13 +3,17 @@
    - Visible por defecto al montarse (no depende de .is-open)
    - Backdrop visual no bloquea la interacción externa
    - Solo .gallery-content capta clics
+   - Respeta zonas seguras: --ui-safe-top y --ui-safe-bottom
 */
 
 :root{
-  --ui-safe-top: 64px; /* ajustá según tu toolbar */
-  --mg-maxw: 900px;
-  --mg-maxh: 80vh;
+  /* Ajustá estos dos valores a la altura real de tus barras */
+  --ui-safe-top: 64px;       /* altura barra superior */
+  --ui-safe-bottom: 72px;    /* altura botonera inferior */
 
+  --mg-maxw: 900px;
+
+  /* Colores / efectos */
   --mg-bg: #ffffff;
   --mg-br: #e5e7eb;
   --mg-text: #111827;
@@ -25,10 +29,10 @@
   inset: 0;
   display: grid;
   place-items: center;
-  z-index: 70;            /* arriba de la UI */
+  z-index: 70;            /* por debajo de la botonera (80), por encima del 3D */
   opacity: 1;             /* 👈 visible por defecto */
   visibility: visible;    /* 👈 visible por defecto */
-  pointer-events: none;   /* el contenedor no capta clics */
+  pointer-events: none;   /* el contenedor no capta clics (solo el contenido) */
   animation: fadeIn 0.3s ease-out;
 }
 
@@ -56,15 +60,19 @@
   border-radius: 16px;
   width: min(92vw, var(--mg-maxw));
   max-width: var(--mg-maxw);
-  height: auto;
-  max-height: var(--mg-maxh);
+
+  /* Altura adaptable: jamás pisa barras ni 3D */
+  /* 24px de margen interior opcional (respira mejor en pantallas chicas) */
+  max-height: calc(100vh - var(--ui-safe-top) - var(--ui-safe-bottom) - 24px);
+
   box-shadow: var(--mg-shadow);
   display: flex;
   flex-direction: column;
   overflow: hidden;
 
-  /* evita tapar la barra superior si está cerca del borde */
+  /* evita tapar la barra superior e inferior */
   margin-top: var(--ui-safe-top);
+  margin-bottom: var(--ui-safe-bottom);
 
   /* Solo el contenido capta clics */
   pointer-events: auto;
@@ -184,11 +192,17 @@
 @media (max-width: 780px) {
   .gallery-content {
     width: 100%;
-    height: 100%;
     max-width: 100%;
-    max-height: 100%;
+
+    /* Bottom sheet: ocupa todo el ancho, altura limitada por zonas seguras */
+    height: auto;
+    max-height: calc(100vh - var(--ui-safe-top) - var(--ui-safe-bottom));
     border-radius: 0;
-    margin-top: 0;
+
+    /* Respetar siempre zonas seguras */
+    margin-top: var(--ui-safe-top);
+    margin-bottom: var(--ui-safe-bottom);
+
     animation: slideInUp 0.3s ease-out;
   }
 

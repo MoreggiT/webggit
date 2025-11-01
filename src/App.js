@@ -17,6 +17,32 @@ import DesignsPanel from "./components/DesignsPanel";
 import ColorsPanel from "./components/ColorsPanel";
 // ------------------------------------------
 
+/* ========= helper zonas seguras (ajusta --ui-safe-bottom dinámico) ========= */
+function useSafeAreas(isMobile) {
+  useEffect(() => {
+    const root = document.documentElement;
+    const setVars = () => {
+      // Si tenés barra superior fija real, podés medirla también.
+      const topBarH = parseInt(getComputedStyle(root).getPropertyValue("--ui-safe-top")) || 64;
+      const bottomEl = document.getElementById("bottom-nav");
+      const bottomH = bottomEl ? Math.round(bottomEl.getBoundingClientRect().height) : 72;
+      root.style.setProperty("--ui-safe-top", `${topBarH}px`);
+      root.style.setProperty("--ui-safe-bottom", `${bottomH}px`);
+    };
+    if (isMobile) {
+      setVars();
+      window.addEventListener("resize", setVars);
+      window.addEventListener("orientationchange", setVars);
+      window.addEventListener("scroll", setVars, { passive: true });
+      return () => {
+        window.removeEventListener("resize", setVars);
+        window.removeEventListener("orientationchange", setVars);
+        window.removeEventListener("scroll", setVars);
+      };
+    }
+  }, [isMobile]);
+}
+
 /* ========== helpers de nombres ========== */
 const stripAccents = (s) =>
   String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -124,7 +150,7 @@ const currentHexFor = (piece, o) =>
     "#000000"
   ).toUpperCase();
 
-/* ========== Popover de color (Se mantiene en App.js porque usa muchos estados) ========== */
+/* ========== Popover de color ========== */
 function ColorPopover({ anchorRect, onPick, onClose, palette }) {
   const ref = React.useRef(null);
   const [pos, setPos] = useState({
@@ -220,7 +246,6 @@ export default function App() {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [categoryGalleryOpen, setCategoryGalleryOpen] = useState(false);
 
-
   const [previewImages, setPreviewImages] = useState(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
 
@@ -235,6 +260,9 @@ export default function App() {
   const abortControllersRef = useRef(new Map());
 
   const isMobile = useMediaQuery('(max-width: 780px)');
+  useSafeAreas(isMobile); // <= ACTIVA zonas seguras dinámicas en móvil
+
+  // Estado único de panel móvil: 'molds' | 'designs' | 'colors' | 'text' | null
   const [mobilePanel, setMobilePanel] = useState(null);
 
   const MAX_CONC = 3;
@@ -389,9 +417,7 @@ export default function App() {
       setStatus(`Categoría: ${cat}`);
 
       for (const [k, ctrl] of abortControllersRef.current.entries()) {
-        try {
-          ctrl.abort();
-        } catch {}
+        try { ctrl.abort(); } catch {}
         abortControllersRef.current.delete(k);
       }
 
@@ -402,6 +428,7 @@ export default function App() {
       setDesignList(d ? Object.keys(d) : []);
       setDesignThumbs({});
       setGalleryOpen(true);
+      setMobilePanel(null); // cerrar paneles móviles al abrir galería
     },
     [indexData]
   );
@@ -478,8 +505,7 @@ export default function App() {
   function findPieceKeyForFile(piecesMap, fileBase) {
     if (piecesMap.has(fileBase)) return fileBase;
     const tokens = fileBase.split("_").filter(Boolean);
-    let best = null,
-      bestScore = 0;
+    let best = null, bestScore = 0;
     for (const key of piecesMap.keys()) {
       const keyTokens = key.split("_");
       let score = 0;
@@ -496,15 +522,11 @@ export default function App() {
   const getThumbCacheKey = (cat, design, modelK) =>
     `${THUMB_CACHE_NS}${cat}::${design}::${modelK}`;
   const readThumb = (cat, design, modelK) => {
-    try {
-      return localStorage.getItem(getThumbCacheKey(cat, design, modelK));
-    } catch {}
+    try { return localStorage.getItem(getThumbCacheKey(cat, design, modelK)); } catch {}
     return null;
   };
   const writeThumb = (cat, design, modelK, dataUrl) => {
-    try {
-      localStorage.setItem(getThumbCacheKey(cat, design, modelK), dataUrl);
-    } catch {}
+    try { localStorage.setItem(getThumbCacheKey(cat, design, modelK), dataUrl); } catch {}
   };
 
   const ensureDesignThumb = useCallback(
@@ -539,9 +561,7 @@ export default function App() {
 
           for (const file of files) {
             if (ac.signal.aborted) return;
-            const svgUrl = `/diseños/${encodeURIComponent(
-              selectedCat
-            )}/${encodeURIComponent(designName)}/${encodeURIComponent(file)}`;
+            const svgUrl = `/diseños/${encodeURIComponent(selectedCat)}/${encodeURIComponent(designName)}/${encodeURIComponent(file)}`;
             try {
               const r = await fetch(svgUrl, { signal: ac.signal });
               if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -552,12 +572,7 @@ export default function App() {
               const piece = pieces.get(targetKey);
               if (!piece) continue;
 
-              const canvas = await rasterizeSvgToCanvasSafe(
-                svgText,
-                THUMB_TEX,
-                THUMB_TEX,
-                FIT_MODE
-              );
+              const canvas = await rasterizeSvgToCanvasSafe(svgText, THUMB_TEX, THUMB_TEX, FIT_MODE);
               if (!canvas) continue;
 
               perFileCanvases.push({ piece, canvas });
@@ -567,9 +582,7 @@ export default function App() {
             }
           }
 
-          try {
-            await viewerApiRef.current?.suspendRender?.(true);
-          } catch {}
+          try { await viewerApiRef.current?.suspendRender?.(true); } catch {}
           for (const { piece, canvas } of perFileCanvases) {
             for (const m of piece.meshes) {
               const hadOverlay = !!m.overlayMat;
@@ -606,9 +619,7 @@ export default function App() {
               m.overlayMesh = null;
             }
           }
-          try {
-            await viewerApiRef.current?.suspendRender?.(false);
-          } catch {}
+          try { await viewerApiRef.current?.suspendRender?.(false); } catch {}
 
           if (ac.signal.aborted) return;
 
@@ -624,7 +635,7 @@ export default function App() {
         }
       });
     },
-    [hasModel, selectedCat, indexData, pieces, designThumbs, modelKey, scheduleThumb, THUMB_TEX, FIT_MODE, THUMB_BOC_W, THUMB_BOC_H]
+    [hasModel, selectedCat, indexData, pieces, designThumbs, modelKey, scheduleThumb]
   );
 
   const handleSelectDesign = useCallback(
@@ -643,9 +654,7 @@ export default function App() {
       const next = new Map(pieces);
 
       for (const file of files) {
-        const svgUrl = `/diseños/${encodeURIComponent(
-          selectedCat
-        )}/${encodeURIComponent(designName)}/${encodeURIComponent(file)}`;
+        const svgUrl = `/diseños/${encodeURIComponent(selectedCat)}/${encodeURIComponent(designName)}/${encodeURIComponent(file)}`;
         try {
           const r = await fetch(svgUrl);
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -662,12 +671,7 @@ export default function App() {
 
           next.set(targetKey, piece);
 
-          const canvas = await rasterizeSvgToCanvasSafe(
-            svgText,
-            TEX_SIZE,
-            TEX_SIZE,
-            FIT_MODE
-          );
+          const canvas = await rasterizeSvgToCanvasSafe(svgText, TEX_SIZE, TEX_SIZE, FIT_MODE);
           if (canvas)
             for (const m of piece.meshes)
               viewerApiRef.current?.applyOverlayTexture(m, canvas);
@@ -683,7 +687,7 @@ export default function App() {
       setEditMode("global");
       pushSnapshot();
     },
-    [hasModel, selectedCat, indexData, pieces, pushSnapshot, TEX_SIZE, FIT_MODE]
+    [hasModel, selectedCat, indexData, pieces, pushSnapshot]
   );
 
   const _applyObjectColorChange = useCallback(
@@ -695,32 +699,20 @@ export default function App() {
       const obj = (piece.objects || []).find((o) => o.objectId === objectId);
       const target = obj?.colorHex ? "fill" : "stroke";
 
-      const updatedXml = setObjectColor(piece.svg.xml, objectId, newHex, {
-        target,
-      });
+      const updatedXml = setObjectColor(piece.svg.xml, objectId, newHex, { target });
       piece.svg.xml = updatedXml;
       piece.objects = safeExtractObjects(updatedXml);
       next.set(pieceKey, piece);
       setPieces(next);
 
       const low = Math.min(1024, TEX_SIZE);
-      const canvasLow = await rasterizeSvgToCanvasSafe(
-        piece.svg.xml,
-        low,
-        low,
-        FIT_MODE
-      );
+      const canvasLow = await rasterizeSvgToCanvasSafe(piece.svg.xml, low, low, FIT_MODE);
       if (canvasLow)
         for (const m of piece.meshes)
           viewerApiRef.current?.applyOverlayTexture(m, canvasLow, true);
 
       setTimeout(async () => {
-        const canvasHi = await rasterizeSvgToCanvasSafe(
-          piece.svg.xml,
-          TEX_SIZE,
-          TEX_SIZE,
-          FIT_MODE
-        );
+        const canvasHi = await rasterizeSvgToCanvasSafe(piece.svg.xml, TEX_SIZE, TEX_SIZE, FIT_MODE);
         if (canvasHi)
           for (const m of piece.meshes)
             viewerApiRef.current?.applyOverlayTexture(m, canvasHi, true);
@@ -728,15 +720,13 @@ export default function App() {
 
       if (!silent) pushSnapshot();
     },
-    [pieces, pushSnapshot, TEX_SIZE, FIT_MODE]
+    [pieces, pushSnapshot]
   );
 
   const applyBatchColor = useCallback(
     async (refs, newHex) => {
       for (const r of refs) {
-        await _applyObjectColorChange(r.pieceKey, r.objectId, newHex, {
-          silent: true,
-        });
+        await _applyObjectColorChange(r.pieceKey, r.objectId, newHex, { silent: true });
       }
       pushSnapshot();
     },
@@ -868,6 +858,7 @@ export default function App() {
     if (isOpening) {
       setEditingText(null);
       viewerApiRef.current?.clearSelectionAll();
+      if (isMobile) setMobilePanel('text');
     } else {
       setEditingText(null);
       viewerApiRef.current?.clearSelectionAll();
@@ -882,21 +873,24 @@ export default function App() {
     if (isMobile) setMobilePanel(null);
   };
 
+  /* ========== ABRIR/CERRAR PANEL MÓVIL (uno por vez) ========== */
   const handleMobilePanelChange = (panelId) => {
     const newPanel = mobilePanel === panelId ? null : panelId;
     setMobilePanel(newPanel);
-  
+
+    // Galería de categorías desde "Molde"
     if (newPanel === 'molds') {
       setCategoryGalleryOpen(true);
     } else {
       setCategoryGalleryOpen(false);
       setGalleryOpen(false);
     }
-  
+
+    // Texto (sincroniza con TextPanel)
     if (newPanel === 'text') {
-      if (!textPanelOpen) handleToggleTextPanel();
+      if (!textPanelOpen) setTextPanelOpen(true);
     } else {
-      if (textPanelOpen && !editingText) handleCloseTextPanel();
+      if (textPanelOpen && !editingText) setTextPanelOpen(false);
     }
   };
 
@@ -918,28 +912,28 @@ export default function App() {
       {/* --- BARRA LATERAL (SOLO ESCRITORIO) --- */}
       {!isMobile && (
         <aside id="ui" className="sidebar">
-            <StatusSection />
-            <DesignsPanel
-                isMobile={false}
-                selectedCat={selectedCat}
-                hasModel={hasModel}
-                designList={designList}
-                designThumbs={designThumbs}
-                handleSelectDesign={handleSelectDesign}
-                ensureDesignThumb={ensureDesignThumb}
-            />
-            <ColorsPanel
-                isMobile={false}
-                editMode={editMode}
-                setEditMode={setEditMode}
-                selectedDesign={selectedDesign}
-                globalLayers={globalLayers}
-                visiblePieces={visiblePieces}
-                selectedKey={selectedKey}
-                togglePiece={togglePiece}
-                openPaletteForLayer={openPaletteForLayer}
-                currentHexFor={currentHexFor}
-            />
+          <StatusSection />
+          <DesignsPanel
+            isMobile={false}
+            selectedCat={selectedCat}
+            hasModel={hasModel}
+            designList={designList}
+            designThumbs={designThumbs}
+            handleSelectDesign={handleSelectDesign}
+            ensureDesignThumb={ensureDesignThumb}
+          />
+          <ColorsPanel
+            isMobile={false}
+            editMode={editMode}
+            setEditMode={setEditMode}
+            selectedDesign={selectedDesign}
+            globalLayers={globalLayers}
+            visiblePieces={visiblePieces}
+            selectedKey={selectedKey}
+            togglePiece={togglePiece}
+            openPaletteForLayer={openPaletteForLayer}
+            currentHexFor={currentHexFor}
+          />
         </aside>
       )}
 
@@ -956,8 +950,18 @@ export default function App() {
               <rect x="3" y="3" width="14" height="14" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M3 14l4-4 3 3 2-2 5 5" /><path d="M19 7v10" />
             </svg>
           </button>
-          <input ref={imageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) viewerApiRef.current?.addDecalImage(f); e.target.value = ""; }} />
-          
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) viewerApiRef.current?.addDecalImage(f);
+              e.target.value = "";
+            }}
+          />
+
           <button className="icon-btn" onClick={handleToggleTextPanel} disabled={!hasModel} title="Añadir o editar texto">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M17 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"></path><path d="M12 18V6"></path><path d="M7 12h10"></path>
@@ -990,7 +994,7 @@ export default function App() {
           />
         )}
 
-        {/* Galerías de Modelos/Categorías (siguen siendo modales/overlays) */}
+        {/* Galerías de Modelos/Categorías (modales/overlays) */}
         <ModelGallery
           open={categoryGalleryOpen}
           isCategoryGallery={true}
@@ -998,66 +1002,61 @@ export default function App() {
           models={catList}
           onClose={() => {
             setCategoryGalleryOpen(false);
-            if(isMobile) setMobilePanel(null);
+            if (isMobile) setMobilePanel(null);
           }}
           onSelect={handleSelectCategory}
         />
-
         <ModelGallery
           open={galleryOpen}
           category={selectedCat}
           models={moldFiles}
-          onClose={() => {
-            setGalleryOpen(false);
-          }}
+          onClose={() => setGalleryOpen(false)}
           onSelect={handleLoadGlbFromGallery}
         />
       </main>
 
-      {/* --- ÁREA DE PANELES MÓVILES (Slot que empuja el 3D) --- */}
+      {/* --- PANELES MÓVILES como overlays fijos (bottom sheets) --- */}
       {isMobile && (
-        // Se usa la clase 'is-open' para controlar la altura del slot con CSS
-        <div className={`mobile-panel-slot ${mobilePanel && mobilePanel !== 'molds' && mobilePanel !== 'text' ? 'is-open' : ''}`}>
-          
-          {/* Status: solo si hay un panel de Diseños o Colores abierto */}
-          {(mobilePanel === 'designs' || mobilePanel === 'colors') && <StatusSection />}
-          
-          {/* DesignsPanel para móvil (usa la prop 'open' para controlar su contenido) */}
+        <>
           <DesignsPanel
-              isMobile={true}
-              open={mobilePanel === 'designs'} 
-              onClose={() => setMobilePanel(null)}
-              selectedCat={selectedCat}
-              hasModel={hasModel}
-              designList={designList}
-              designThumbs={designThumbs}
-              handleSelectDesign={handleSelectDesign}
-              ensureDesignThumb={ensureDesignThumb}
+            isMobile={true}
+            open={mobilePanel === 'designs'}
+            onClose={() => setMobilePanel(null)}
+            selectedCat={selectedCat}
+            hasModel={hasModel}
+            designList={designList}
+            designThumbs={designThumbs}
+            handleSelectDesign={handleSelectDesign}
+            ensureDesignThumb={ensureDesignThumb}
           />
-
-          {/* ColorsPanel para móvil (usa la prop 'open' para controlar su contenido) */}
           <ColorsPanel
-              isMobile={true}
-              open={mobilePanel === 'colors'}
-              onClose={() => setMobilePanel(null)}
-              editMode={editMode}
-              setEditMode={setEditMode}
-              selectedDesign={selectedDesign}
-              globalLayers={globalLayers}
-              visiblePieces={visiblePieces}
-              selectedKey={selectedKey}
-              togglePiece={togglePiece}
-              openPaletteForLayer={openPaletteForLayer}
-              currentHexFor={currentHexFor}
+            isMobile={true}
+            open={mobilePanel === 'colors'}
+            onClose={() => setMobilePanel(null)}
+            editMode={editMode}
+            setEditMode={setEditMode}
+            selectedDesign={selectedDesign}
+            globalLayers={globalLayers}
+            visiblePieces={visiblePieces}
+            selectedKey={selectedKey}
+            togglePiece={togglePiece}
+            openPaletteForLayer={openPaletteForLayer}
+            currentHexFor={currentHexFor}
           />
-        </div>
+        </>
       )}
 
       {/* --- NAVEGACIÓN INFERIOR (SOLO MÓVIL) --- */}
-      {isMobile && <BottomNav activePanel={mobilePanel} onPanelChange={handleMobilePanelChange} />}
+      {isMobile && (
+        <div id="bottom-nav">
+          <BottomNav activePanel={mobilePanel} onPanelChange={handleMobilePanelChange} />
+        </div>
+      )}
 
       {/* --- MODALES Y POPOVERS GLOBALES --- */}
-      {previewImages && <PreviewModal images={previewImages} onClose={() => setPreviewImages(null)} />}
+      {previewImages && (
+        <PreviewModal images={previewImages} onClose={() => setPreviewImages(null)} />
+      )}
       {palettePopover && (
         <ColorPopover
           anchorRect={palettePopover.anchorRect}
@@ -1073,7 +1072,8 @@ export default function App() {
           }}
         />
       )}
-      {/* El TextPanel es el único overlay aquí */}
+
+      {/* TextPanel: lateral en desktop / bottom sheet en móvil (según su CSS) */}
       <TextPanel
         open={textPanelOpen && (!isMobile || (isMobile && mobilePanel === 'text'))}
         onClose={handleCloseTextPanel}

@@ -1,51 +1,53 @@
 /* src/components/modelthumb.css
-   Miniaturas 3D (model thumbs) con estados de carga/selección y accesibilidad
-   - Mantiene proporción cuadrada por defecto (120x120)
-   - Estados :hover, :focus-visible y .is-selected
-   - Skeleton de carga + spinner
-   - Modo .minimal para mostrar solo el canvas (sin “caja”)
+   Miniaturas 3D (model thumbs) con estados y accesibilidad
+   - Mejor contraste, foco visible y tamaños adaptativos
+   - Desktop: 120–140px; Mobile: más grandes y legibles
+   - Variantes: .compact, .minimal, .dense
 */
 
 :root{
-  --mt-size: 120px;
-  --mt-radius: 10px;
+  --mt-size: 128px; /* un poco más grande por claridad */
+  --mt-radius: 12px;
   --mt-br: var(--border, #e5e7eb);
   --mt-bg: #f1f5f9;
-  --mt-text: #374151;
+  --mt-text: #1f2937;
   --mt-accent: var(--accent, #2563eb);
-  --mt-shadow: 0 6px 18px rgba(2,6,23,.06);
+  --mt-shadow: 0 8px 22px rgba(2,6,23,.08);
+
+  --mt-caption-size: .9rem;
+  --mt-gap: 10px;
 }
 
-/* Botón contenedor */
-.model-thumb-btn {
+/* Botón contenedor: target táctil grande */
+.model-thumb-btn{
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 0;
+  gap: var(--mt-gap);
+  padding: 6px;
   background: transparent;
   border: none;
-  border-radius: var(--mt-radius);
+  border-radius: calc(var(--mt-radius) + 2px);
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: transform .12s ease, box-shadow .2s ease, filter .2s ease;
+  transition: transform .12s ease, box-shadow .2s ease, filter .2s ease, background .2s ease;
 }
 
 /* Enfocado por teclado: resalte claro y accesible */
-.model-thumb-btn:focus-visible {
+.model-thumb-btn:focus-visible{
   outline: none;
   box-shadow: 0 0 0 3px rgba(37,99,235,.35);
-  border-radius: calc(var(--mt-radius) + 2px);
+  background: rgba(37,99,235,.04);
 }
 
 /* Hover (desktop) */
-@media (hover: hover) and (pointer: fine) {
-  .model-thumb-btn:hover { transform: translateY(-1px); }
+@media (hover: hover) and (pointer: fine){
+  .model-thumb-btn:hover{ transform: translateY(-1px); }
 }
 
 /* Caja de preview (canvas vive adentro) */
-.model-thumb-preview {
+.model-thumb-preview{
   width: var(--mt-size);
   height: var(--mt-size);
   border-radius: var(--mt-radius);
@@ -57,33 +59,33 @@
 }
 
 /* Hover embellecido sobre la caja */
-@media (hover: hover) and (pointer: fine) {
-  .model-thumb-btn:hover .model-thumb-preview {
+@media (hover: hover) and (pointer: fine){
+  .model-thumb-btn:hover .model-thumb-preview{
     border-color: var(--mt-accent);
     box-shadow: var(--mt-shadow);
   }
 }
 
 /* Estado seleccionado por clase externa */
-.model-thumb-btn.is-selected .model-thumb-preview {
+.model-thumb-btn.is-selected .model-thumb-preview{
   border-color: var(--mt-accent);
   box-shadow: 0 0 0 2px rgba(37,99,235,.15) inset, var(--mt-shadow);
 }
 
 /* Canvas de Three.js ocupa todo el contenedor */
-.model-thumb-preview canvas {
+.model-thumb-preview canvas{
   width: 100%;
   height: 100%;
   display: block;
 }
 
 /* Etiqueta debajo de la miniatura */
-.model-thumb-caption {
-  font-weight: 500;
+.model-thumb-caption{
+  font-weight: 600;
   color: var(--mt-text);
-  font-size: 0.875rem;
+  font-size: var(--mt-caption-size);
   text-align: center;
-  max-width: var(--mt-size);
+  max-width: calc(var(--mt-size) + 8px);
   word-wrap: break-word;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -93,103 +95,108 @@
 /* =========================
    Estados de carga / error
 ========================= */
-
-/* Skeleton base (mientras prepara la escena) */
-.model-thumb-preview::before {
+.model-thumb-preview::before{
+  /* Skeleton base (mientras prepara la escena) */
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(255,255,255,0) 0%,
-    rgba(255,255,255,.55) 50%,
-    rgba(255,255,255,0) 100%
-  );
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.55) 50%, rgba(255,255,255,0) 100%);
   transform: translateX(-100%);
-  animation: shimmer 1.2s infinite;
+  animation: shimmer 1.15s infinite;
   pointer-events: none;
   opacity: .6;
 }
-
-/* Cuando el canvas ya está listo, podés quitar el shimmer agregando .is-ready */
-.model-thumb-preview.is-ready::before { display: none; }
+.model-thumb-preview.is-ready::before{ display: none; }
 
 /* Spinner centrado */
 .thumb-spinner,
-.thumb-error {
+.thumb-error{
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
+  display: grid;
+  place-items: center;
 }
-
-.thumb-spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid rgba(0, 0, 0, 0.1);
+.thumb-spinner{
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(0,0,0,.1);
   border-top-color: var(--mt-accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
-
-.thumb-error {
+.thumb-error{
   font-size: 1.4rem;
-  font-weight: 700;
+  font-weight: 800;
   color: #ef4444;
   text-shadow: 0 1px 2px rgba(0,0,0,.08);
 }
 
 /* =========================
-   Variantes
+   Variantes y densidades
 ========================= */
 
-/* Variante minimal: sin borde ni fondo (solo canvas) */
-.model-thumb-preview.minimal {
+/* Minimal: solo canvas, sin borde/fondo/skeleton */
+.model-thumb-preview.minimal{
   background: transparent;
   border: none;
   box-shadow: none;
 }
-.model-thumb-preview.minimal::before {
-  /* En modo minimal, también podés ocultar el shimmer si molesta */
-  display: none;
+.model-thumb-preview.minimal::before{ display: none; }
+
+/* Compacta: miniaturas más chicas (grillas densas) */
+.model-thumb-btn.compact .model-thumb-preview{
+  --mt-size: 104px;
+  --mt-radius: 10px;
+}
+.model-thumb-btn.compact .model-thumb-caption{
+  font-size: .82rem;
+  max-width: calc(var(--mt-size) + 8px);
 }
 
-/* Variante compacta: miniaturas más chicas (útil en grillas densas) */
-.model-thumb-btn.compact .model-thumb-preview {
-  --mt-size: 96px;
-  --mt-radius: 8px;
+/* Super compacta para listados tipo carrusel */
+.model-thumb-btn.dense .model-thumb-preview{
+  --mt-size: 92px;
+  --mt-radius: 10px;
 }
-.model-thumb-btn.compact .model-thumb-caption {
-  font-size: 0.8rem;
-  max-width: var(--mt-size);
+.model-thumb-btn.dense .model-thumb-caption{
+  font-size: .78rem;
 }
 
 /* =========================
    Animaciones
 ========================= */
-@keyframes spin {
-  to { transform: translate(-50%, -50%) rotate(360deg); }
-}
-@keyframes shimmer {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+@keyframes spin{ to{ transform: rotate(360deg); } }
+@keyframes shimmer{
+  0%{ transform: translateX(-100%); }
+  100%{ transform: translateX(100%); }
 }
 
 /* =========================
    Responsive
 ========================= */
-@media (max-width: 640px) {
-  :root { --mt-size: 104px; }
-  .model-thumb-btn.compact .model-thumb-preview { --mt-size: 88px; }
+@media (max-width: 780px){
+  :root{
+    --mt-size: 140px;        /* un toque más grande en móvil */
+    --mt-caption-size: .95rem;
+    --mt-radius: 14px;
+  }
+
+  /* En pantallas chicas, agrandamos el target y el gap */
+  .model-thumb-btn{ gap: 12px; padding: 8px; }
+
+  /* Cuando las thumbs están dentro de paneles-carrusel,
+     suelen ser .dense o .compact: dejamos reglas listas. */
+  .model-thumb-btn.compact .model-thumb-preview{ --mt-size: 112px; }
+  .model-thumb-btn.dense .model-thumb-preview{ --mt-size: 98px; }
 }
 
 /* =========================
    Motion safe
 ========================= */
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce){
   .model-thumb-btn,
   .model-thumb-preview,
-  .model-thumb-preview::before {
+  .model-thumb-preview::before{
     transition: none !important;
     animation: none !important;
   }

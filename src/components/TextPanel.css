@@ -1,57 +1,71 @@
-/* src/components/TextPanel.css */
+/* src/components/TextPanel.css
+   Panel de Texto (capas seguras + safe bottom + modo slot móvil)
+*/
 
-/* Variables (deberían coincidir con tu index.css) */
 :root {
+  --ui-safe-top: 64px;
+  --ui-safe-bottom: 72px;
+
+  --tp-width: 320px;
   --tp-bg: var(--card, #ffffff);
   --tp-border: var(--border, #e5e7eb);
-  --tp-shadow: var(--shadow, 0 4px 12px rgba(0,0,0,0.08));
+  --tp-shadow: var(--shadow, 0 12px 40px rgba(0,0,0,0.18));
+
   --tp-text-primary: var(--text-primary, #111827);
   --tp-text-secondary: var(--text-secondary, #6b7280);
   --tp-accent: var(--accent, #2563eb);
   --tp-input-bg: var(--pill-bg, #f3f4f6);
   --tp-input-border: var(--pill-br, #e5e7eb);
+
+  --z-panel: 1300;
+  --z-panel-closed: 900;
 }
 
+/* ============== CONTENEDOR (ESCRITORIO) ============== */
 .text-panel-modern {
-  /* --- Estilos de Escritorio (Desktop) --- */
   position: fixed;
   right: 12px;
-  top: 12px;
-  bottom: 12px;
-  width: 320px;
+  top: var(--ui-safe-top);
+  bottom: calc(12px + var(--ui-safe-bottom));
+  width: var(--tp-width);
   background: var(--tp-bg);
   border: 1px solid var(--tp-border);
   border-radius: 16px;
   box-shadow: var(--tp-shadow);
-  z-index: 800;
+  z-index: var(--z-panel-closed);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: var(--tp-text-primary);
-  
-  transform: translateX(calc(100% + 24px));
-  transition: transform 0.35s cubic-bezier(0.23, 1, 0.32, 1);
-  visibility: hidden;
-}
 
+  transform: translateX(calc(100% + 24px));
+  transition: transform 0.35s cubic-bezier(0.23,1,0.32,1),
+              opacity .2s ease, visibility .2s ease;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
 .text-panel-modern.is-open {
   transform: translateX(0);
   visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  z-index: var(--z-panel);
 }
 
-
-/* --- Encabezado --- */
+/* ============== HEADER ============== */
 .tp-header {
   padding: 14px 16px;
   border-bottom: 1px solid var(--tp-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255,255,255,0.7);
   backdrop-filter: blur(6px);
-  position: relative;
-  z-index: 10;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 .tp-header h3 {
   font-size: 16px;
@@ -59,27 +73,23 @@
   margin: 0;
 }
 .tp-close-btn {
-  /* MEJORA: Aumentamos el tamaño del objetivo táctil del botón de cerrar */
-  width: 36px; 
-  height: 36px;
+  width: 32px;
+  height: 32px;
   background: var(--tp-input-bg);
   border: 1px solid var(--tp-input-border);
   color: var(--tp-text-secondary);
-  border-radius: 50%;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 18px; /* Ligeramente más grande */
+  font-size: 16px;
   line-height: 1;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: transform .15s ease, background .2s ease, color .2s ease, box-shadow .2s ease;
 }
-.tp-close-btn:hover {
-  background: #e5e7eb;
-  color: var(--tp-text-primary);
-}
+.tp-close-btn:hover { background: #eef2f7; color: var(--tp-text-primary); box-shadow: 0 3px 12px rgba(2,6,23,.06); }
 
-/* --- Cuerpo y Secciones --- */
+/* ============== BODY ============== */
 .tp-body {
   padding: 16px;
   display: flex;
@@ -88,52 +98,28 @@
   overflow-y: auto;
   flex-grow: 1;
   -webkit-overflow-scrolling: touch;
+  /* margen inferior para no chocar con el bottom-nav */
+  padding-bottom: calc(16px + env(safe-area-inset-bottom) + var(--ui-safe-bottom));
 }
-.tp-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.tp-section > label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--tp-text-secondary);
-  text-transform: uppercase;
-  margin: 0;
-}
-.tp-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.tp-col {
-  flex: 1 1 50%;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.tp-col-grow {
-  flex-grow: 1;
-}
-.tp-col label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--tp-text-secondary);
-}
+.tp-section { display: flex; flex-direction: column; gap: 10px; }
+.tp-section > label { font-size: 12px; font-weight: 500; color: var(--tp-text-secondary); text-transform: uppercase; margin: 0; }
+.tp-row { display: flex; align-items: center; gap: 12px; }
+.tp-col { flex: 1 1 50%; display: flex; flex-direction: column; gap: 4px; }
+.tp-col-grow { flex-grow: 1; }
+.tp-col label { font-size: 12px; font-weight: 500; color: var(--tp-text-secondary); }
 
-/* --- Controles de Formulario --- */
+/* Inputs */
 .tp-textarea,
 .tp-select,
 .tp-input-num {
   width: 100%;
   background: var(--tp-input-bg);
   border: 1px solid var(--tp-input-border);
-  border-radius: 8px;
-  /* MEJORA: Aumentamos padding para mejor pulsación táctil */
-  padding: 12px; 
+  border-radius: 10px;
+  padding: 12px;
   font-size: 15px;
   color: var(--tp-text-primary);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color .2s ease, box-shadow .2s ease;
   box-sizing: border-box;
 }
 .tp-textarea:focus,
@@ -141,171 +127,151 @@
 .tp-input-num:focus {
   outline: none;
   border-color: var(--tp-accent);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 0 0 2px rgba(37,99,235,.2);
 }
-.tp-textarea {
-  resize: vertical;
-  min-height: 80px;
-}
+.tp-textarea { resize: vertical; min-height: 84px; }
 .tp-color-picker {
-  -webkit-appearance: none;
-  -moz-appearance: none;
   appearance: none;
-  width: 44px; /* Ligeramente más grande */
-  height: 44px; /* Ligeramente más grande */
-  padding: 0;
-  border: none;
-  border-radius: 8px;
+  width: 44px; height: 44px;
+  border-radius: 10px;
   background: none;
   cursor: pointer;
   border: 1px solid var(--tp-input-border);
   flex-shrink: 0;
 }
-.tp-color-picker::-webkit-color-swatch {
-  border-radius: 7px;
-  border: none;
-}
-.tp-color-picker::-moz-color-swatch {
-  border-radius: 7px;
-  border: none;
-}
+.tp-color-picker::-webkit-color-swatch { border-radius: 9px; border: none; }
+.tp-color-picker::-moz-color-swatch { border-radius: 9px; border: none; }
 
-/* --- Sliders --- */
+/* Sliders */
 .tp-slider {
-  -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 8px; /* Ligeramente más ancho */
+  height: 8px;
   background: var(--tp-input-bg);
-  border-radius: 4px; /* Ajuste por altura */
+  border-radius: 4px;
   outline: none;
-  opacity: 0.9;
-  transition: opacity 0.2s;
+  opacity: .95;
+  transition: opacity .2s;
 }
-.tp-slider:hover {
-  opacity: 1;
-}
+.tp-slider:hover { opacity: 1; }
 .tp-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
   appearance: none;
-  width: 20px; /* Más grande para táctil */
-  height: 20px; /* Más grande para táctil */
-  background: var(--tp-accent);
-  border-radius: 50%;
-  cursor: pointer;
-  border: 4px solid var(--tp-bg); /* Borde más grueso */
-  box-shadow: 0 0 2px rgba(0,0,0,0.2);
-}
-.tp-slider::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
+  width: 20px; height: 20px;
   background: var(--tp-accent);
   border-radius: 50%;
   cursor: pointer;
   border: 4px solid var(--tp-bg);
-  box-shadow: 0 0 2px rgba(0,0,0,0.2);
+  box-shadow: 0 0 2px rgba(0,0,0,.2);
 }
-.tp-value-label {
-  font-size: 13px; /* Ligeramente más grande */
-  color: var(--tp-text-secondary);
-  min-width: 36px;
-  text-align: right;
-  flex-shrink: 0;
+.tp-slider::-moz-range-thumb {
+  width: 20px; height: 20px;
+  background: var(--tp-accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 4px solid var(--tp-bg);
+  box-shadow: 0 0 2px rgba(0,0,0,.2);
 }
-.tp-label-icon {
-  font-size: 16px; /* Ligeramente más grande */
-  color: var(--tp-text-primary);
-  font-weight: 500;
-  min-width: 40px;
-  flex-shrink: 0;
-}
+.tp-value-label { font-size: 13px; color: var(--tp-text-secondary); min-width: 36px; text-align: right; }
 
-/* --- Grupo de Botones (Toggle buttons) --- */
-.tp-btn-group {
-  display: flex;
-  width: 100%;
-}
+/* Toggle group */
+.tp-btn-group { display: flex; width: 100%; gap: 6px; }
 .tp-btn {
-  flex-grow: 1;
+  flex: 1 1 auto;
   background: var(--tp-input-bg);
   border: 1px solid var(--tp-input-border);
   color: var(--tp-text-secondary);
-  padding: 10px 10px; /* Aumentamos el padding vertical para táctil */
+  padding: 10px 10px;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  -webkit-tap-highlight-color: transparent;
+  font-size: 14px; font-weight: 500;
+  border-radius: 10px;
+  transition: background .2s ease, color .2s ease, box-shadow .2s ease;
 }
+.tp-btn.active { background: #fff; color: var(--tp-text-primary); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 
-/* --- Footer --- */
+/* Footer */
 .tp-footer {
   padding: 16px;
   border-top: 1px solid var(--tp-border);
-  background: rgba(255, 255, 255, 0.9); /* Más opaco para el fondo */
+  background: rgba(255,255,255,0.9);
   backdrop-filter: blur(6px);
-  position: relative;
-  z-index: 10;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
 }
 .tp-btn-primary {
   width: 100%;
   background: var(--tp-accent);
   color: #fff;
   border: none;
-  border-radius: 10px; /* Ligeramente más redondeado */
-  padding: 14px; /* Más padding para un botón principal más grande */
-  font-size: 16px; /* Ligeramente más grande */
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease;
-  -webkit-tap-highlight-color: transparent;
+  transition: background .2s ease, transform .1s ease;
+}
+.tp-btn-primary:active { transform: translateY(0); }
+
+/* ======================= MÓVIL (OVERLAY) ======================= */
+@media (max-width: 780px) {
+  .text-panel-modern {
+    width: 100%;
+    height: auto;
+    max-height: 80vh;
+    bottom: var(--ui-safe-bottom);
+    top: auto; left: 0; right: 0;
+    border-radius: 20px 20px 0 0;
+    border: none;
+    box-shadow: 0 -12px 30px rgba(0,0,0,0.12);
+    transform: translateY(100%);
+
+    visibility: hidden; opacity: 0; pointer-events: none;
+    z-index: var(--z-panel-closed);
+  }
+  .text-panel-modern.is-open {
+    transform: translateY(0);
+    visibility: visible; opacity: 1; pointer-events: auto;
+    z-index: var(--z-panel);
+  }
+
+  .tp-header { padding-top: 16px; }
+  .tp-header::before {
+    content: '';
+    width: 48px; height: 5px; background: var(--tp-input-border);
+    border-radius: 4px; position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+  }
+  .tp-body {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom) + var(--ui-safe-bottom));
+  }
 }
 
+/* =================== MODO SLOT (NO OVERLAY) =================== */
+/* Cuando el panel vive dentro de .mobile-panel-slot NO debe ser fixed,
+   así no tapa el BottomNav. */
+.mobile-panel-slot .text-panel-modern {
+  position: static !important;
+  inset: auto !important;
+  width: 100% !important;
+  max-height: none !important;
+  transform: none !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  border: 0; border-radius: 0; box-shadow: none;
+  z-index: var(--z-panel);
+}
+.mobile-panel-slot .tp-header {
+  position: static;
+  backdrop-filter: none;
+  background: #fff;
+  border-bottom: 1px solid var(--tp-border);
+}
+.mobile-panel-slot .tp-header::before { display: none; }
+.mobile-panel-slot .tp-body {
+  padding: 12px 16px 16px;
+}
 
-/*
- * =========================================
- * 🟢 DISEÑO RESPONSIVE PARA MÓVILES (Bottom Sheet)
- * =========================================
-*/
-
-@media (max-width: 768px) {
-  
-  .text-panel-modern {
-    /* Mantenemos tus estilos de Bottom Sheet, pero aumentamos max-height */
-    max-height: 85vh; /* Puede ocupar más para campos largos */
-    
-    /* El borde superior para móvil es más limpio sin un borde fino */
-    border: none;
-  }
-  
-  .tp-header {
-    padding-top: 16px; /* Más padding en la parte superior para el "tirador" */
-    padding-bottom: 8px; 
-    border-top-left-radius: 20px;
-    border-top-right-radius: 20px;
-  }
-  
-  .tp-header::before {
-    /* Mantenemos el tirador visual */
-    top: 8px;
-    background: var(--tp-input-border);
-  }
-
-  .tp-body {
-    padding: 16px;
-    padding-bottom: 24px; /* Espacio extra al final del contenido scrolleable */
-  }
-
-  .tp-footer {
-    /* Ajuste crítico para respetar el área segura y evitar que el botón
-       quede oculto por la barra de inicio de iOS/Android */
-    padding-bottom: calc(16px + env(safe-area-inset-bottom));
-    /* Eliminamos el borde superior para que se mezcle con el fondo de la safe area */
-    border-top: none;
-  }
-  
-  .tp-edit-note {
-    /* Más espacio para la nota debajo del botón */
-    padding: 8px 0;
-  }
+/* Motion safe */
+@media (prefers-reduced-motion: reduce) {
+  .text-panel-modern, .tp-btn, .tp-slider { transition: none !important; }
 }
