@@ -9,7 +9,7 @@
 }
 
 .design-thumb {
-  /* 🟢 ARREGLO: Cambiado height por aspect-ratio para evitar estiramiento */
+  /* Mantiene la proporción 4:3 para el contenedor */
   aspect-ratio: 4 / 3;
   width: 100%; /* Ocupa el ancho de la columna del grid */
   background: var(--bg-light, #f9fafb);
@@ -24,11 +24,18 @@
 .design-thumb:hover {
   border-color: var(--accent, #2563eb);
 }
+
 .design-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+
+  /* 🟢 SOLUCIÓN: Cambiado de 'cover' a 'contain'.
+     'contain' asegura que la imagen entera sea visible sin recortar,
+     evitando el efecto de "estiramiento". Puede dejar un espacio en blanco
+     si la proporción de la imagen no es 4:3, pero nunca la deformará. */
+  object-fit: contain;
 }
+
 .design-thumb-skel {
   width: 80%;
 }
@@ -41,6 +48,7 @@
 .design-thumb-skel .bar.short {
   width: 60%;
 }
+
 .design-caption {
   font-size: 0.8rem;
   margin-top: 8px;
@@ -51,4 +59,3 @@
   text-overflow: ellipsis;
   color: var(--text-primary, #1f2937);
 }
-
